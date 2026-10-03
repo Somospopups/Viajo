@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="style.css?v=176">
+<link rel="stylesheet" href="style.css?v=177">
 </head>
 <body>
 
@@ -51,9 +51,12 @@
   <!-- controles flotantes del mapa -->
   <div id="mapCtl">
     <button class="fab" id="btnLocate" type="button" title="Mi ubicación"><span class="ico" data-ico="locate"></span></button>
-    <button class="fab" id="btnTraffic" type="button" title="Tráfico"><span class="ico" data-ico="traffic"></span></button>
+    <button class="fab" id="btnFav" type="button" title="Favoritos"><span class="ico" data-ico="heart"></span></button>
     <button class="fab" id="btnAlerts" type="button" title="Alertas"><span class="ico" data-ico="bell"></span><span class="fab-dot"></span></button>
   </div>
+
+  <!-- reportar -->
+  <button id="reportFab" type="button" title="Reportar"><span class="ico" data-ico="plus"></span></button>
 
   <!-- bottom sheet -->
   <section id="sheet">
@@ -187,6 +190,18 @@
           <div class="vh-title"><span class="ico" data-ico="heart"></span><h3>Favoritos</h3></div>
           <p class="sub">Tus líneas y destinos guardados</p>
         </div>
+        <div class="sec-h"><h4>Ubicaciones rápidas</h4></div>
+        <div class="spots" id="favSpots">
+          <button class="spot" type="button" data-spot="casa">
+            <span class="sp-ico" data-ico="home"></span><b>Casa</b><span id="spotCasaTxt">Tocá para elegir</span>
+          </button>
+          <button class="spot" type="button" data-spot="trabajo">
+            <span class="sp-ico" data-ico="work"></span><b>Trabajo</b><span id="spotTrabajoTxt">Tocá para elegir</span>
+          </button>
+          <button class="spot add" type="button" data-spot="add">
+            <span class="sp-ico" data-ico="plus"></span><b>Agregar</b><span>Nuevo lugar</span>
+          </button>
+        </div>
         <div class="sec-h"><h4>Líneas favoritas</h4></div>
         <div class="list" id="favLines"></div>
         <div class="sec-h"><h4>Destinos guardados</h4></div>
@@ -209,14 +224,6 @@
 
     </div>
   </section>
-
-  <!-- navegación inferior -->
-  <nav id="nav">
-    <button class="tab active" type="button" data-nav="search"><span class="ico" data-ico="search"></span><b>Buscar</b></button>
-    <button class="tab" type="button" data-nav="fav"><span class="ico" data-ico="heart"></span><b>Favoritos</b></button>
-    <button class="tab report" type="button" data-nav="report"><span class="rep"><span class="ico" data-ico="plus"></span></span><b>Reportar</b></button>
-    <button class="tab" type="button" data-nav="menu"><span class="ava" id="navAva"></span><b>Menú</b></button>
-  </nav>
 </div>
 
 <!-- ===================== PÁGINA COMPLETA (submenús) ===================== -->
@@ -278,6 +285,18 @@
   </div>
 </div>
 
+<!-- ===================== ELEGIR LUGAR (CASA / TRABAJO / +) ===================== -->
+<div class="modal-wrap hidden" id="spotModal">
+  <div class="modal">
+    <h3 id="spotTitle">Elegir lugar</h3>
+    <p class="muted" id="spotSub">Buscá y elegí una dirección</p>
+    <input id="spotInput" class="field" type="text" placeholder="Buscar lugar…" autocomplete="off">
+    <div class="list spot-list" id="spotList"></div>
+    <button class="btn primary wide" id="spotSave" type="button">Guardar</button>
+    <button class="btn ghost wide" id="spotCancel" type="button">Cancelar</button>
+  </div>
+</div>
+
 <!-- ===================== CONFIRMAR SALIDA ===================== -->
 <div class="modal-wrap hidden" id="exitModal">
   <div class="modal">
@@ -304,9 +323,9 @@
 <div id="loader" class="hidden"><div class="spin"></div><span id="loaderTxt">Buscando líneas…</span></div>
 
 <script src="vendor/leaflet.js"></script>
-<script src="data.js?v=176"></script>
-<script src="core.js?v=176"></script>
-<script src="views.js?v=176"></script>
-<script src="main.js?v=176"></script>
+<script src="data.js?v=177"></script>
+<script src="core.js?v=177"></script>
+<script src="views.js?v=177"></script>
+<script src="main.js?v=177"></script>
 </body>
 </html>

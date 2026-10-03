@@ -18,7 +18,6 @@ function openView(id, opt) {
   renderFor(id);
   if (!opt || !opt.keepSheet) setSheet(id === 'v-home' ? null : 'full');
   syncHandle();
-  markTab(id);
 }
 function backView() {
   if (viewStack.length <= 1) { setSheet(null); return; }
@@ -27,7 +26,7 @@ function backView() {
   $$('.view').forEach(function (v) { v.classList.toggle('hidden', v.id !== id); });
   renderFor(id);
   setSheet(id === 'v-home' ? null : 'full');
-  syncHandle(); markTab(id);
+  syncHandle();
 }
 function renderFor(id) {
   if (id === 'v-home') renderHome();
@@ -49,12 +48,6 @@ function syncHandle() {
       h.insertBefore(back, h.firstChild);
     }
   } else if (back) back.remove();
-}
-function markTab(id) {
-  var map = { 'v-search': 'search', 'v-fav': 'fav' };
-  $$('#nav .tab').forEach(function (t) {
-    t.classList.toggle('active', map[id] ? t.dataset.nav === map[id] : t.dataset.nav === 'search' && id === 'v-home');
-  });
 }
 function initSheet() {
   var h = $('#handle'), dragging = false, startY = 0, startState = '';
@@ -192,31 +185,6 @@ function addAlert(typeId, lat, lon) {
   ALERTS.unshift(a);
   renderAlerts();
   return a;
-}
-var trafficOnMap = false;
-function toggleTraffic() {
-  trafficOnMap = !trafficOnMap;
-  $('#btnTraffic').classList.toggle('on', trafficOnMap);
-  if (trafficOnMap) {
-    layerTraffic.clearLayers();
-    var keys = Object.keys(D.traza), used = 0;
-    for (var i = 0; i < keys.length && used < 8; i++) {
-      var t = D.traza[keys[(i * 23 + 5) % keys.length]];
-      if (t.length < 12) continue;
-      var sev = (i * 7) % 3;
-      var start = 4 + ((i * 11) % (t.length - 14));
-      var slice = t.slice(start, start + 9).map(function (p) { return [p[1], p[0]]; });
-      L.polyline(slice, {
-        color: sev === 0 ? '#FF3B3B' : sev === 1 ? '#FF8A1E' : '#FFD400',
-        weight: 9, opacity: 0.82, lineCap: 'round'
-      }).addTo(layerTraffic);
-      used++;
-    }
-    layerTraffic.addTo(map);
-    toast('Tráfico en vivo', 'Mostrando congestión en avenidas', 'traffic', 'var(--orange)');
-  } else {
-    map.removeLayer(layerTraffic);
-  }
 }
 
 /* =========================== LÍNEAS =========================== */
@@ -437,6 +405,9 @@ function renderNearby() {
 
 /* =========================== FAVORITOS =========================== */
 function renderFav() {
+  var casa = store.get('place_casa', null), trab = store.get('place_trabajo', null);
+  $('#spotCasaTxt').textContent = casa ? casa.n : 'Tocá para elegir';
+  $('#spotTrabajoTxt').textContent = trab ? trab.n : 'Tocá para elegir';
   var favs = store.get('favLines', []);
   $('#favLines').innerHTML = favs.length ? favs.map(function (id) {
     var l = D.lineas.filter(function (x) { return x.i === id; })[0];

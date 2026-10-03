@@ -257,8 +257,53 @@ function setAccount(name, mail, logged) {
   $('#profileName').textContent = name;
   $('#profileMail').textContent = mail;
   $('#btnLogin').textContent = logged ? 'Sincronizado' : 'Ingresar';
-  $('#navAva').innerHTML = AVA_SVG;
   $('#profileAva').innerHTML = AVA_SVG;
+}
+
+/* =========================== UBICACIONES RÁPIDAS (CASA / TRABAJO / +) =========================== */
+var spotKey = null, spotSel = null;
+var SPOT_TITLES = { casa: 'Elegí tu Casa', trabajo: 'Elegí tu Trabajo', add: 'Agregar lugar' };
+function spotPool() {
+  var seen = {}, out = [];
+  PLACES.concat(store.get('recents', [])).forEach(function (p) {
+    if (p && p.n && !seen[p.n]) { seen[p.n] = 1; out.push(p); }
+  });
+  return out;
+}
+function renderSpotList(q) {
+  q = (q || '').toLowerCase().trim();
+  var pool = spotPool();
+  if (q) pool = pool.filter(function (p) { return p.n.toLowerCase().indexOf(q) >= 0; });
+  $('#spotList').innerHTML = pool.slice(0, 14).map(function (p) {
+    var on = spotSel && spotSel.n === p.n;
+    return '<div class="row' + (on ? ' sel' : '') + '" data-spotpick="' + encodeURIComponent(p.n) + '|' + p.la + '|' + p.lo + '">' +
+      '<div class="r-ico">' + icoSvg('pin') + '</div><div class="r-t"><b>' + p.n + '</b><span>Córdoba Capital</span></div>' +
+      '<span class="ico chev" data-ico="chevron"></span></div>';
+  }).join('') || '<div class="empty"><b>Sin resultados</b><span>Probá con otra palabra</span></div>';
+  hydrate($('#spotList'));
+}
+function openSpotPicker(key) {
+  spotKey = key;
+  spotSel = null;
+  $('#spotTitle').textContent = SPOT_TITLES[key] || 'Elegir lugar';
+  var cur = key === 'add' ? null : store.get('place_' + key, null);
+  $('#spotSub').textContent = cur ? 'Ahora: ' + cur.n : (key === 'add' ? 'Se suma a "Destinos guardados"' : 'Se usa en la búsqueda rápida');
+  $('#spotInput').value = '';
+  renderSpotList('');
+  openModal('spotModal');
+}
+function saveSpot() {
+  if (!spotSel) { toast('Elegí un lugar', 'Tocá una opción de la lista', 'pin', 'var(--amber)'); return; }
+  if (spotKey === 'casa' || spotKey === 'trabajo') store.set('place_' + spotKey, spotSel);
+  else {
+    var places = store.get('favPlaces', []).filter(function (p) { return p.n !== spotSel.n; });
+    places.push({ n: spotSel.n, la: spotSel.la, lo: spotSel.lo });
+    store.set('favPlaces', places);
+  }
+  closeModal('spotModal');
+  renderFav();
+  renderSearchList();
+  toast('Guardado', spotSel.n, 'check', 'var(--green)');
 }
 
 /* =========================== REPORTAR =========================== */
@@ -271,7 +316,7 @@ function buildReportGrid() {
 /* =========================== EVENTOS =========================== */
 function wire() {
   document.addEventListener('click', function (e) {
-    var sel = ['[data-fav]', '[data-pop]', '[data-confirm]', '[data-dismiss]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-rep]', '[data-opt]', '[data-goto]', '[data-alert]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]'];
+    var sel = ['[data-fav]', '[data-pop]', '[data-confirm]', '[data-dismiss]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-rep]', '[data-opt]', '[data-goto]', '[data-alert]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]', '[data-spot]', '[data-spotpick]'];
     for (var i = 0; i < sel.length; i++) {
       var el = e.target.closest(sel[i]);
       if (!el) continue;
@@ -332,6 +377,13 @@ function wire() {
         case 'line': openLine(el.dataset.line); return;
         case 'open': return dataOpen(el.dataset.open);
         case 'nav': return dataNav(el.dataset.nav);
+        case 'spot': return openSpotPicker(el.dataset.spot);
+        case 'spotpick': {
+          var sp = decodeURIComponent(el.dataset.spotpick).split('|');
+          spotSel = { n: sp[0], la: parseFloat(sp[1]), lo: parseFloat(sp[2]) };
+          renderSpotList($('#spotInput').value);
+          return;
+        }
         case 'seg': activeRoute = parseInt(el.dataset.seg, 10); renderLineDetail(); return;
         case 'close-modal': closeModal(el.dataset.closeModal); return;
       }
@@ -341,7 +393,11 @@ function wire() {
   $('#searchPill').addEventListener('click', function () { openView('v-search'); });
   $('#btnProfile').addEventListener('click', function () { openSheet('menuSheet'); });
   $('#btnLocate').addEventListener('click', locateMe);
-  $('#btnTraffic').addEventListener('click', toggleTraffic);
+  $('#btnFav').addEventListener('click', function () { openView('v-fav'); });
+  $('#reportFab').addEventListener('click', function () { openSheet('reportSheet'); });
+  $('#spotInput').addEventListener('input', function () { spotSel = null; renderSpotList(this.value); });
+  $('#spotSave').addEventListener('click', saveSpot);
+  $('#spotCancel').addEventListener('click', function () { closeModal('spotModal'); });
   $('#btnAlerts').addEventListener('click', function () {
     if (!ALERTS.length) { toast('Sin alertas', 'No hay reportes activos', 'bell', 'var(--green)'); return; }
     var b = L.latLngBounds(ALERTS.map(function (a) { return [a.lat, a.lon]; }));
@@ -501,7 +557,6 @@ function boot() {
   $('#splashLogo').innerHTML = LOGO_SVG;
   $('#splashVer').textContent = 'Versión ' + RELEASE;
   $('#appVersion').textContent = APP_VERSION;
-  $('#navAva').innerHTML = AVA_SVG;
   $('#profileAva').innerHTML = AVA_SVG;
   $('#loginAva').innerHTML = AVA_SVG;
   $('#btnProfile').innerHTML = AVA_SVG;

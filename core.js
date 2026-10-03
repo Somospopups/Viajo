@@ -1,7 +1,7 @@
 /* Bondi · núcleo: iconos, utilidades, índices, mapa y simulación */
 'use strict';
 
-var APP_VERSION = 'v176';
+var APP_VERSION = 'v177';
 var RELEASE = 'V4';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
@@ -205,8 +205,8 @@ function bearing(a, b) {
 }
 
 /* =========================== MAPA =========================== */
-var map, userMarker, layerRoute, layerStops, layerBuses, layerFlags, layerWalk, layerAlerts, layerTraffic, tileLayer;
-var tileMode = 'light', trafficOn = false;
+var map, userMarker, layerRoute, layerStops, layerBuses, layerFlags, layerWalk, layerAlerts, tileLayer;
+var tileMode = 'light';
 var TILE = {
   light: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles &copy; Esri &middot; OpenStreetMap contributors', sub: '' },
   dark: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles &copy; Esri &middot; OpenStreetMap contributors', sub: '' },
@@ -233,7 +233,6 @@ function initMap() {
   layerWalk = L.layerGroup().addTo(map);
   layerFlags = L.layerGroup().addTo(map);
   layerAlerts = L.layerGroup().addTo(map);
-  layerTraffic = L.layerGroup();
   layerBuses = L.layerGroup().addTo(map);
   L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
   map.on('click', hidePopup);
