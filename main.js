@@ -84,12 +84,34 @@ var PAGES = {
     title: 'BiciCba',
     html: function () {
       return hero('bike', 'BiciCba', 'La bicicleta pública de la ciudad, para llegar donde el bondi no llega') +
+        '<div class="p-sec"><h4>Estaciones · bicis disponibles</h4>' +
+        '<div class="bici-sum"><div class="bs-t"><b id="biciTot">Cargando…</b><span id="biciSub">Disponibilidad de BiciCba</span></div>' +
+        '<button class="bi-refresh" id="biciRefresh" type="button">' + icoSvg('refresh') + 'Actualizar</button></div>' +
+        '<div class="bici-list" id="biciList"></div>' +
+        '<div class="bici-foot" id="biciFoot"></div></div>' +
         '<div class="p-sec"><h4>Cómo usarla</h4><div class="p-list">' +
         pItem('card', 'Sacá tu tarjeta', 'Acreditá tu documento en el centro de atención y activá el servicio.') +
-        pItem('pin', 'Encontrá una estación', 'Buscá estaciones libres o con lugares disponibles desde el mapa.') +
-        pItem('clock', '24 / 7', 'Podés moverte a cualquier hora, con trayectos cortos y gratuitos.') +
+        pItem('pin', 'Encontrá una estación', 'Tocá la estación para verla en el mapa y marcarla como destino.') +
+        pItem('clock', 'Horarios', 'Cada estación muestra su horario de lunes a viernes y de fines de semana.') +
         '</div></div>' +
         '<div class="p-sec"><h4>Combiná</h4><div class="card"><p class="muted">Muchas líneas de bondi tienen estaciones de BiciCba cerca de sus paradas: usalas para resolver la “última milla”.</p></div></div>';
+    },
+    after: function () {
+      renderBici();
+      var b = $('#biciRefresh');
+      if (b) b.addEventListener('click', function () {
+        if (b.classList.contains('busy')) return;
+        b.classList.add('busy');
+        b.innerHTML = icoSvg('refresh') + 'Actualizando…';
+        biciLive(function (ok, why) {
+          b.classList.remove('busy');
+          b.innerHTML = icoSvg('refresh') + 'Actualizar';
+          renderBici();
+          if (ok && why === 'vivo') toast('Disponibilidad al día', 'Datos en vivo de BiciCba', 'check', 'var(--green)');
+          else toast('Sin conexión en vivo', 'Se muestran los últimos datos de BiciCba', 'warn', 'var(--amber)');
+        }, true);
+      });
+      biciLive(function () { renderBici(); });
     }
   },
   notif: {
@@ -317,7 +339,7 @@ function buildReportGrid() {
 /* =========================== EVENTOS =========================== */
 function wire() {
   document.addEventListener('click', function (e) {
-    var sel = ['[data-fav]', '[data-pop]', '[data-confirm]', '[data-dismiss]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-rep]', '[data-opt]', '[data-goto]', '[data-alert]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]', '[data-spot]', '[data-spotpick]', '[data-strip]', '[data-dir]'];
+    var sel = ['[data-fav]', '[data-pop]', '[data-confirm]', '[data-dismiss]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-rep]', '[data-opt]', '[data-goto]', '[data-alert]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]', '[data-spot]', '[data-spotpick]', '[data-strip]', '[data-dir]', '[data-bici]'];
     for (var i = 0; i < sel.length; i++) {
       var el = e.target.closest(sel[i]);
       if (!el) continue;
@@ -352,6 +374,7 @@ function wire() {
           pts.b = { n: parts[0], la: parseFloat(parts[1]), lo: parseFloat(parts[2]) };
           $('[data-clear="b"]').classList.add('on');
           setDestPin(pts.b);
+          hidePopup();
           return;
         }
         case 'rep': {
@@ -392,6 +415,7 @@ function wire() {
         case 'close-modal': closeModal(el.dataset.closeModal); return;
         case 'strip': return openDirModal(el.dataset.strip);
         case 'dir': return chooseRoute(parseInt(el.dataset.dir, 10));
+        case 'bici': return openBiciOnMap(parseInt(el.dataset.bici, 10));
       }
     }
   });
@@ -404,6 +428,9 @@ function wire() {
   $('#linesFab').addEventListener('click', function () { toggleStrip(); });
   $('#stripClose').addEventListener('click', function () { toggleStrip(false); });
   $('#dirCancel').addEventListener('click', function () { closeModal('dirModal'); });
+  $('#dirFlip').addEventListener('click', flipSense);
+  $('#dirSense').addEventListener('click', function () { chooseRoute(activeRoute); });
+  $('#dirGo').addEventListener('click', function () { chooseRoute(activeRoute); });
   $('#lcClose').addEventListener('click', closeLineCard);
   $('#lcStops').addEventListener('click', function () {
     if (!activeLine) return;
@@ -416,9 +443,11 @@ function wire() {
     if (!activeKey) return;
     var si = nearestStopOnRoute(activeKey);
     if (si == null) { toast('Sin paradas', 'No encontramos paradas en este recorrido', 'warn', 'var(--amber)'); return; }
-    if (watch && watch.key === activeKey) stopWatch();
-    else startWatch(activeKey, si);
+    var on = !(watch && watch.key === activeKey);
+    if (on) startWatch(activeKey, si);
+    else stopWatch();
     syncWatchUI();
+    if (on) hideLineCard();
   });
   $('#btnWatchStop').addEventListener('click', function () {
     var routes = (stopRoutes[currentStop] || []).slice();
@@ -562,6 +591,7 @@ function handleBack() {
   if (!$('#lineStrip').classList.contains('hidden')) { toggleStrip(false); return true; }
   if (!$('#lineCard').classList.contains('hidden')) { closeLineCard(); return true; }
   if (curPopup) { hidePopup(); return true; }
+  if (busRoute && $('#lineCard').classList.contains('hidden')) { clearRoute(); return true; }
   if (document.body.dataset.sheet) { setSheet(null); return true; }
   if (!$('#etaBar').classList.contains('hidden')) { endTrip(); return true; }
   if (!$('#exitModal').classList.contains('hidden')) { closeModal('exitModal'); return true; }
@@ -599,6 +629,47 @@ function popupAlert(a) {
 function removeAlert(id) {
   ALERTS = ALERTS.filter(function (a) { return a.id !== id; });
   renderAlerts();
+}
+/* ===================== BICICBA · ESTACIONES ===================== */
+function renderBici() {
+  var list = $('#biciList');
+  if (!list) return;
+  var est = BICI.est || [];
+  list.innerHTML = est.map(function (e, i) {
+    return '<div class="bici-item">' +
+      '<span class="bi-dot" style="background:' + biciColor(e.d) + '"></span>' +
+      '<div class="bi-main"><b>' + e.nombre + '</b><span>' + (e.dir || '') + '</span>' +
+      '<em>' + (e.hs || '') + '<br>' + (e.hf || '') + '</em></div>' +
+      '<div class="bi-num" style="color:' + biciColor(e.d) + '"><b>' + (e.d || 0) + '</b><span>bicis</span></div>' +
+      '<button class="bi-map" type="button" data-bici="' + i + '" title="Ver en el mapa">' + icoSvg('pin') + '</button>' +
+      '</div>';
+  }).join('');
+  var tot = $('#biciTot'), sub = $('#biciSub'), foot = $('#biciFoot');
+  if (tot) tot.textContent = est.length + ' estaciones · ' + biciDisp() + ' bicis disponibles';
+  if (sub) sub.textContent = 'Actualizado ' + biciFechas(BICI.upd) + ' · tocá una estación para verla en el mapa';
+  if (foot) foot.textContent = 'Datos de las estaciones: BiciCba (Córdoba)';
+}
+function popupBici(e) {
+  return '<div class="wz-pop"><div class="p-top"><span class="p-badge" style="background:' + biciColor(e.d) + '">' + icoSvg('bike') + '</span>' +
+    '<div class="p-t"><b>' + e.nombre + '</b><span>' + (e.dir || '') + '</span></div>' +
+    '<button class="p-close" data-pop="1">' + icoSvg('close') + '</button></div>' +
+    '<div class="p-arr">' +
+    '<div class="row"><span class="t">Bicis disponibles</span><span class="m">' + (e.d || 0) + ' bicis</span></div>' +
+    '<div class="row"><span class="t">Comunes / adaptadas</span><span class="m">' + (e.c || 0) + ' / ' + (e.a || 0) + '</span></div>' +
+    '<div class="row"><span class="t">Lunes a viernes</span><span class="m">' + (e.hs || '—') + '</span></div>' +
+    '<div class="row"><span class="t">Fines de semana</span><span class="m">' + (e.hf || '—') + '</span></div>' +
+    '</div>' +
+    '<div class="p-foot"><button data-pick="' + encodeURIComponent(e.nombre) + '|' + e.la + '|' + e.lo + '">' + icoSvg('pin') + 'Marcar destino</button>' +
+    '<button class="ghost" data-pop="1">Cerrar</button></div></div>';
+}
+function openBiciOnMap(i) {
+  var e = (BICI.est || [])[i];
+  if (!e) return;
+  hidePopup();
+  closePage();
+  backToMap();
+  map.flyTo([e.la, e.lo], 16);
+  setTimeout(function () { showPopup([e.la, e.lo], popupBici(e)); }, 520);
 }
 function dataOpen(key) {
   if (key === 'search') { closeSheet('menuSheet'); openView('v-search'); return; }

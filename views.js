@@ -153,7 +153,7 @@ function renderLineStrip() {
   if (!box) return;
   box.innerHTML = D.lineas.map(function (l, i) {
     return '<button class="lc' + (activeLine && activeLine.i === l.i ? ' on' : '') + '" type="button" data-strip="' + l.i + '" style="--i:' + Math.min(i, 24) + ';background:' + l.c + '">' +
-      l.n + '<small>' + l.e + '</small></button>';
+      l.n + '</button>';
   }).join('');
 }
 function toggleStrip(on) {
@@ -163,31 +163,65 @@ function toggleStrip(on) {
   if (open) { renderLineStrip(); s.classList.remove('hidden'); }
   else s.classList.add('hidden');
 }
+function dirTitleCase(s) {
+  return String(s || '').replace(/\S+/g, function (w) { return w.charAt(0) + w.slice(1).toLowerCase(); });
+}
+function dirWay(r) {
+  var n = (r && r.n) || '';
+  var p = n.split(' A ');
+  return p.length === 2 ? 'De ' + dirTitleCase(p[0]) + ' a ' + dirTitleCase(p[1]) : n;
+}
+function renderDirSense() {
+  var l = activeLine;
+  if (!l) return;
+  var r = l.r[activeRoute] || l.r[0];
+  if (!r) return;
+  $('#dsT').textContent = r.s === 'V' ? 'Vuelta' : 'Ida';
+  $('#dsR').textContent = dirWay(r);
+  $('#dsM').textContent = r.k.toFixed(1).replace('.', ',') + ' km · ' + r.p + ' paradas';
+  $('#dirSense').setAttribute('data-dir', activeRoute);
+  $('#dirGo').setAttribute('data-dir', activeRoute);
+}
 function openDirModal(lineId) {
   var l = D.lineas.filter(function (x) { return String(x.i) === String(lineId); })[0];
   if (!l) return;
   activeLine = l;
+  var saved = store.get('sense_' + l.i, null);
+  activeRoute = (saved != null && l.r[saved]) ? saved : 0;
+  if (!l.r[activeRoute]) activeRoute = 0;
   $('#dirBadge').textContent = l.n;
   $('#dirBadge').style.background = l.c;
-  $('#dirTitle').textContent = 'Línea ' + l.n;
-  $('#dirSub').textContent = l.r.length > 1 ? 'Elegí el sentido del recorrido' : (l.r[0] ? l.r[0].n : '');
-  $('#dirList').innerHTML = l.r.map(function (r, i) {
-    return '<button type="button" class="dir-opt" data-dir="' + i + '" style="--c:' + l.c + '">' +
-      '<span class="do-ico">' + icoSvg(r.s === 'V' ? 'back' : 'arrow') + '</span>' +
-      '<div class="do-t"><b>' + (r.s === 'V' ? 'Vuelta' : 'Ida') + ' · ' + r.n + '</b>' +
-      '<span>' + r.k.toFixed(1).replace('.', ',') + ' km · ' + r.p + ' paradas</span></div>' +
-      '<span class="ico chev" data-ico="chevron"></span></button>';
-  }).join('');
+  $('#dirFlip').classList.toggle('hide', l.r.length < 2);
+  $('#dirFlip').classList.remove('turn');
+  renderDirSense();
   hydrate($('#dirModal'));
   openModal('dirModal');
+}
+/* gira la tarjetita del sentido y guarda la elección */
+function flipSense() {
+  var l = activeLine;
+  if (!l || l.r.length < 2) return;
+  var sense = $('#dirSense');
+  if (sense.classList.contains('flip')) return;
+  var next = (activeRoute + 1) % l.r.length;
+  $('#dirFlip').classList.toggle('turn');
+  sense.classList.add('flip');
+  setTimeout(function () {
+    activeRoute = next;
+    store.set('sense_' + l.i, activeRoute);
+    renderDirSense();
+  }, 230);
+  setTimeout(function () { sense.classList.remove('flip'); }, 540);
 }
 function chooseRoute(idx) {
   var l = activeLine;
   if (!l) return;
+  if (idx != null && l.r[idx]) activeRoute = idx;
   closeModal('dirModal');
   toggleStrip(false);
-  activeRoute = idx || 0;
   var r = l.r[activeRoute] || l.r[0];
+  activeRoute = l.r.indexOf(r) < 0 ? 0 : l.r.indexOf(r);
+  store.set('sense_' + l.i, activeRoute);
   activeKey = r.t;
   showLineCard();
   drawRoute(r.t);
@@ -200,6 +234,10 @@ function closeLineCard() {
   $('#lineCard').classList.add('hidden');
   clearRoute();
 }
+/* cierra la tarjeta pero deja el recorrido marcado en el mapa */
+function hideLineCard() {
+  $('#lineCard').classList.add('hidden');
+}
 function renderLineCard() {
   var l = activeLine;
   if (!l || $('#lineCard').classList.contains('hidden')) return;
@@ -210,6 +248,7 @@ function renderLineCard() {
   $('#lcDir').textContent = (r.s === 'V' ? 'Vuelta' : 'Ida') + ' · ' + r.n;
   $('#lcFav').classList.toggle('on', store.get('favLines', []).indexOf(l.i) >= 0);
   refreshCardEta();
+  syncWatchUI();
 }
 function refreshCardEta() {
   var card = $('#lineCard');
