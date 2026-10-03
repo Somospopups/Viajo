@@ -4,18 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#33CCFF">
-<meta name="description" content="BondiWaze · Transporte público de Córdoba Capital con la identidad visual de Waze: líneas, paradas, próximos arribos y reportes de la comunidad.">
+<meta name="description" content="Bondi · Transporte público de Córdoba Capital: líneas, paradas, próximos arribos, horarios y reportes de la comunidad.">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>BondiWaze · Transporte Público de Córdoba</title>
+<title>Bondi · Transporte Público de Córdoba</title>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="style.css?v=173">
+<link rel="stylesheet" href="style.css?v=174">
 </head>
 <body>
 
@@ -23,7 +23,7 @@
 <div id="splash">
   <div class="splash-in">
     <div class="splash-logo" id="splashLogo"></div>
-    <h1>BondiWaze</h1>
+    <h1>Bondi</h1>
     <p>Transporte público · Córdoba Capital</p>
     <div class="dots"><span></span><span></span><span></span></div>
   </div>
@@ -34,7 +34,7 @@
 <div id="app" class="hidden">
   <div id="map"></div>
 
-  <!-- barra superior estilo Waze -->
+  <!-- barra superior -->
   <header id="topbar">
     <button id="searchPill" class="pill" type="button">
       <span class="ico" data-ico="search"></span>
@@ -89,7 +89,7 @@
 
         <div class="promo" data-open="howto">
           <div class="promo-ico" data-ico="info"></div>
-          <div><b>¿Cómo funciona BondiWaze?</b><span>Descubrí en 4 pasos cómo llegar más rápido</span></div>
+          <div><b>¿Cómo funciona Bondi?</b><span>Descubrí en 4 pasos cómo llegar más rápido</span></div>
           <span class="ico chev" data-ico="chevron"></span>
         </div>
       </div>
@@ -245,14 +245,14 @@
     <button class="m-item" type="button" data-open="social"><span class="m-ico" data-ico="like"></span>Redes sociales<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="rate"><span class="m-ico" data-ico="star"></span>Calificar experiencia<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="bici"><span class="m-ico" data-ico="bike"></span>BiciCba<span class="ico chev" data-ico="chevron"></span></button>
-    <button class="m-item" type="button" data-open="install"><span class="m-ico" data-ico="download"></span>Instalar BondiWaze<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="install"><span class="m-ico" data-ico="download"></span>Instalar Bondi<span class="ico chev" data-ico="chevron"></span></button>
     <div class="m-item static"><span class="m-ico" data-ico="moon"></span>Cambiar tema
       <label class="switch"><input type="checkbox" id="tglDark"><span class="track"><span class="knob"></span></span></label>
     </div>
     <button class="m-item" type="button" data-open="about"><span class="m-ico" data-ico="info"></span>Acerca de<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item danger" type="button" id="btnLogout"><span class="m-ico" data-ico="logout"></span>Cerrar sesión</button>
   </div>
-  <div class="menu-foot">BondiWaze <span id="appVersion">v1</span> · Datos de líneas y paradas: TU BONDI Córdoba</div>
+  <div class="menu-foot">Bondi <span id="appVersion">v1</span> · Datos de líneas y paradas: TU BONDI Córdoba</div>
 </section>
 
 <!-- ===================== REPORTAR ===================== -->
@@ -277,6 +277,17 @@
   </div>
 </div>
 
+<!-- ===================== CONFIRMAR SALIDA ===================== -->
+<div class="modal-wrap hidden" id="exitModal">
+  <div class="modal">
+    <div class="modal-ava" id="exitAva"></div>
+    <h3>¿Querés salir de Bondi?</h3>
+    <p class="muted">Tus favoritos y búsquedas quedan guardados en este dispositivo. Podés volver cuando quieras.</p>
+    <button class="btn wide" id="btnExitYes" type="button" style="background:rgba(255,75,75,.12);color:var(--red)">Salir de la aplicación</button>
+    <button class="btn primary wide" id="btnExitNo" type="button">Cancelar</button>
+  </div>
+</div>
+
 <!-- ===================== POPUP DEL MAPA ===================== -->
 <div id="mapPopup" class="hidden"></div>
 
@@ -292,9 +303,9 @@
 <div id="loader" class="hidden"><div class="spin"></div><span id="loaderTxt">Buscando líneas…</span></div>
 
 <script src="vendor/leaflet.js"></script>
-<script src="data.js?v=173"></script>
-<script src="core.js?v=173"></script>
-<script src="views.js?v=173"></script>
-<script src="main.js?v=173"></script>
+<script src="data.js?v=174"></script>
+<script src="core.js?v=174"></script>
+<script src="views.js?v=174"></script>
+<script src="main.js?v=174"></script>
 </body>
 </html>

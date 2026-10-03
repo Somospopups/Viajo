@@ -1,6 +1,6 @@
 /* =========================================================
-   BondiWaze · identidad visual inspirada en Waze
-   Córdoba Capital · transporte público
+   Bondi · transporte público de Córdoba Capital
+   interfaz clara, redondeada y alegre
    ========================================================= */
 
 :root{
@@ -144,7 +144,7 @@ body.dark .leaflet-control-attribution{background:rgba(12,18,25,.72)!important;c
 .mk-sube{width:30px;height:30px;border-radius:50% 50% 50% 4px;background:#7C4DFF;border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 10px rgba(40,10,90,.4)}
 .mk-sube svg{width:16px;height:16px}
 
-/* popup tipo Waze */
+/* popup de marcadores */
 .leaflet-popup-content-wrapper{background:transparent!important;box-shadow:none!important;padding:0!important;border-radius:0!important}
 .leaflet-popup-content{margin:0!important;width:auto!important}
 .leaflet-popup-tip{display:none!important}

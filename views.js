@@ -1,4 +1,4 @@
-/* BondiWaze · vistas, bottom sheet, mapa, búsqueda y viaje */
+/* Bondi · vistas, bottom sheet, mapa, búsqueda y viaje */
 'use strict';
 
 /* =========================== BOTTOM SHEET =========================== */
@@ -8,6 +8,7 @@ function setSheet(state) {
   else document.body.removeAttribute('data-sheet');
 }
 function openView(id, opt) {
+  closeExit();
   var cur = viewStack[viewStack.length - 1];
   if (cur === id) { renderFor(id); syncHandle(); return; }
   if (viewStack.indexOf(id) >= 0) viewStack = viewStack.slice(0, viewStack.indexOf(id) + 1);
@@ -81,6 +82,7 @@ function initSheet() {
 /* =========================== POPUP =========================== */
 var curPopup = null;
 function showPopup(latlng, html) {
+  closeExit();
   hidePopup();
   curPopup = L.popup({ closeButton: false, offset: [0, -4], autoPan: true, maxHeight: 420 })
     .setLatLng(latlng).setContent(html).openOn(map);

@@ -1,11 +1,16 @@
-/* BondiWaze · páginas, menú, reportes y arranque */
+/* Bondi · páginas, menú, reportes y arranque */
 'use strict';
 
 var LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><defs><linearGradient id="bw-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5FDBFF"/><stop offset="1" stop-color="#22BEF2"/></linearGradient></defs><rect x="14" y="16" width="100" height="84" rx="26" fill="url(#bw-g)"/><rect x="27" y="30" width="74" height="40" rx="18" fill="#EAFBFF"/><circle cx="47" cy="49" r="7.5" fill="#12212E"/><circle cx="81" cy="49" r="7.5" fill="#12212E"/><circle cx="49.5" cy="46.5" r="2.4" fill="#fff"/><circle cx="83.5" cy="46.5" r="2.4" fill="#fff"/><path d="M48 80 Q64 94 80 80" stroke="#0C2B3B" stroke-width="7" stroke-linecap="round" fill="none"/><rect x="24" y="96" width="26" height="16" rx="8" fill="#12212E"/><rect x="78" y="96" width="26" height="16" rx="8" fill="#12212E"/><rect x="16" y="44" width="8" height="20" rx="4" fill="#0C2B3B" opacity=".35"/><rect x="104" y="44" width="8" height="20" rx="4" fill="#0C2B3B" opacity=".35"/></svg>';
 var AVA_SVG = '<svg viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#33CCFF"/><circle cx="32" cy="25" r="11" fill="#fff"/><path d="M11 57c2.6-11.4 11-17 21-17s18.4 5.6 21 17" fill="#fff"/></svg>';
 
 /* =========================== OVERLAYS =========================== */
+function closeExit() {
+  var m = $('#exitModal');
+  if (m && !m.classList.contains('hidden')) m.classList.add('hidden');
+}
 function openSheet(id) {
+  closeExit();
   $('#' + id.replace('Sheet', 'Overlay')).classList.remove('hidden');
   $('#' + id).classList.remove('hidden');
 }
@@ -13,7 +18,7 @@ function closeSheet(id) {
   $('#' + id.replace('Sheet', 'Overlay')).classList.add('hidden');
   $('#' + id).classList.add('hidden');
 }
-function openModal(id) { $('#' + id).classList.remove('hidden'); }
+function openModal(id) { if (id !== 'exitModal') closeExit(); $('#' + id).classList.remove('hidden'); }
 function closeModal(id) { $('#' + id).classList.add('hidden'); }
 
 /* =========================== PÁGINAS =========================== */
@@ -21,6 +26,7 @@ var pageOpen = false;
 function openPage(key, title) {
   var build = PAGES[key];
   if (!build) return;
+  closeExit();
   $('#pageTitle').textContent = title || (build.title || '');
   $('#pageBody').innerHTML = build.html();
   $('#pageBody').scrollTop = 0;
@@ -51,7 +57,7 @@ var PAGES = {
   howto: {
     title: 'Cómo funciona',
     html: function () {
-      return hero('info', 'BondiWaze en 4 pasos', 'Igual que Waze, pero para los bondis de Córdoba Capital') +
+      return hero('info', 'Bondi en 4 pasos', 'Planificá, seguí y reportá tu viaje en bondi') +
         '<div class="p-sec"><h4>Empezá por acá</h4><div class="steps">' +
         '<div class="step-card"><span class="n">1</span><div><b>Buscá tu línea</b><p>Tocá “Líneas” y filtrá por número o destino. Guardá tus favoritas con la estrella.</p></div></div>' +
         '<div class="step-card"><span class="n">2</span><div><b>Mirá los próximos arribos</b><p>Cada parada te muestra cuánto falta para la próxima unidad con el diagrama de operación.</p></div></div>' +
@@ -101,7 +107,7 @@ var PAGES = {
   rate: {
     title: 'Calificar',
     html: function () {
-      return hero('star', '¿Qué te pareció?', 'Tu opinión nos ayuda a mejorar BondiWaze') +
+      return hero('star', '¿Qué te pareció?', 'Tu opinión nos ayuda a mejorar Bondi') +
         '<div class="card"><div class="stars" id="rateStars">' +
         [1, 2, 3, 4, 5].map(function (i) { return '<button type="button" data-star="' + i + '">' + icoSvg('star') + '</button>'; }).join('') +
         '</div><p class="muted" style="text-align:center" id="rateTxt">Tocá las estrellas</p>' +
@@ -127,7 +133,7 @@ var PAGES = {
   install: {
     title: 'Instalar',
     html: function () {
-      return hero('download', 'Instalar BondiWaze', 'Sumalo a tu pantalla de inicio y usalo como una app') +
+      return hero('download', 'Instalar Bondi', 'Sumalo a tu pantalla de inicio y usalo como una app') +
         '<div class="p-sec"><h4>En Android (Chrome)</h4><div class="card"><p class="muted">Menú ⋮ → “Agregar a pantalla de inicio” → “Instalar”.</p></div></div>' +
         '<div class="p-sec"><h4>En iPhone (Safari)</h4><div class="card"><p class="muted">Botón de compartir → “Agregar a pantalla de inicio”.</p></div></div>' +
         '<div class="p-sec"><h4>En escritorio</h4><div class="card"><p class="muted">Chrome/Edge: ícono de instalar en la barra de direcciones. Guardá el ícono en tus favoritos para abrirlo siempre.</p></div></div>' +
@@ -137,9 +143,9 @@ var PAGES = {
   about: {
     title: 'Acerca de',
     html: function () {
-      return hero('bus', 'BondiWaze ' + APP_VERSION, 'Transporte público de Córdoba Capital con la mirada de Waze') +
+      return hero('bus', 'Bondi ' + APP_VERSION, 'Transporte público de Córdoba Capital') +
         '<div class="p-sec"><h4>Sobre la app</h4><div class="p-list">' +
-        pItem('map', 'Mapa y comunidad', 'Estilo Waze: reportes, alertas y tráfico para que viajes mejor.') +
+        pItem('map', 'Mapa y comunidad', 'Reportes, alertas y tráfico de la comunidad para que viajes mejor.') +
         pItem('bus', 'Datos de líneas', 'Recorridos, paradas y horarios provistos por TU BONDI Córdoba.') +
         pItem('info', 'Tiempos de llegada', 'Combinamos el diagrama de operación con la posición de las unidades.') +
         '</div></div>' +
@@ -152,7 +158,7 @@ var PAGES = {
     html: function () {
       return hero('like', 'Seguinos', 'Novedades, cambios de recorrido y concursos') +
         '<div class="p-sec"><div class="p-list">' +
-        pItem('chat', 'Comunidad BondiWaze', 'Contanos tu viaje y reportá mejoras.') +
+        pItem('chat', 'Comunidad Bondi', 'Contanos tu viaje y reportá mejoras.') +
         pItem('share', 'Compartir la app', 'Mandásela a quien viaja en bondi todos los días.') +
         '</div></div>' +
         '<div class="line-actions"><button class="btn primary" id="btnShareApp">' + icoSvg('share') + 'Compartir app</button>' +
@@ -221,7 +227,7 @@ function openSchedFor(key) {
   }, 30);
 }
 function shareApp() {
-  var data = { title: 'BondiWaze', text: 'Transporte público de Córdoba con estilo Waze', url: location.href };
+  var data = { title: 'Bondi', text: 'Transporte público de Córdoba Capital', url: location.href };
   if (navigator.share) navigator.share(data).catch(function () {});
   else copy(location.href) || toast('Enlace copiado', 'Listo para compartir', 'share', 'var(--blue)');
 }
@@ -367,7 +373,7 @@ function wire() {
   $('#btnCenterLine').addEventListener('click', function () { if (activeKey) drawRoute(activeKey); });
   $('#btnShareLine').addEventListener('click', function () {
     var txt = 'Línea ' + activeLine.n + ' · ' + activeLine.r[activeRoute].n;
-    if (navigator.share) navigator.share({ title: 'BondiWaze', text: txt }).catch(function () {});
+    if (navigator.share) navigator.share({ title: 'Bondi', text: txt }).catch(function () {});
     else { copy(txt); toast('Copiado', txt, 'share', 'var(--blue)'); }
   });
   $('#btnStopSched').addEventListener('click', function () {
@@ -402,6 +408,8 @@ function wire() {
     setTileMode(this.checked ? 'dark' : 'light');
   });
   $('#pushClose').addEventListener('click', function () { $('#push').classList.add('hidden'); });
+  $('#btnExitNo').addEventListener('click', function () { closeModal('exitModal'); });
+  $('#btnExitYes').addEventListener('click', exitApp);
   document.addEventListener('click', function (e) {
     var x = e.target.closest('#etaClose');
     if (x) endTrip();
@@ -412,6 +420,7 @@ function wire() {
 }
 
 /* ============ BOTÓN ATRÁS DE ANDROID / GESTO DE NAVEGACIÓN ============ */
+var exiting = false;
 function handleBack() {
   if (!$('#loginModal').classList.contains('hidden')) { closeModal('loginModal'); return true; }
   if (!$('#reportSheet').classList.contains('hidden')) { closeSheet('reportSheet'); return true; }
@@ -421,12 +430,26 @@ function handleBack() {
   if (curPopup) { hidePopup(); return true; }
   if (document.body.dataset.sheet) { setSheet(null); return true; }
   if (!$('#etaBar').classList.contains('hidden')) { endTrip(); return true; }
-  return false;
+  if (!$('#exitModal').classList.contains('hidden')) { closeModal('exitModal'); return true; }
+  openModal('exitModal');
+  return true;
+}
+function exitApp() {
+  closeModal('exitModal');
+  exiting = true;
+  try { window.close(); } catch (e) {}
+  setTimeout(function () { try { history.go(-2); } catch (e) {} }, 120);
+  setTimeout(function () {
+    if (document.hidden) return;
+    exiting = false;
+    try { history.pushState({ bw: 'root' }, ''); } catch (e) {}
+  }, 2500);
 }
 function initHistory() {
   try {
     history.replaceState({ bw: 'root' }, '');
     window.addEventListener('popstate', function () {
+      if (exiting) return;
       handleBack();
       try { history.pushState({ bw: 'root' }, ''); } catch (e) {}
     });
@@ -481,6 +504,7 @@ function boot() {
   $('#profileAva').innerHTML = AVA_SVG;
   $('#loginAva').innerHTML = AVA_SVG;
   $('#btnProfile').innerHTML = AVA_SVG;
+  $('#exitAva').innerHTML = LOGO_SVG;
   buildReportGrid();
   buildIndexes();
   wire();
@@ -508,7 +532,7 @@ function boot() {
     setTimeout(function () {
       locateMe();
       var fav = store.get('favLines', []);
-      if (!fav.length) push('Bienvenido a BondiWaze', 'Buscá tu línea favorita y guardala con la estrella ★');
+      if (!fav.length) push('Bienvenido a Bondi', 'Buscá tu línea favorita y guardala con la estrella ★');
     }, 700);
   }, 1500);
 }
