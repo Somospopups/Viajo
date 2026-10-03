@@ -1,7 +1,7 @@
 /* Bondi · núcleo: iconos, utilidades, índices, mapa y simulación */
 'use strict';
 
-var APP_VERSION = 'v182';
+var APP_VERSION = 'v183';
 var RELEASE = 'V4';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
