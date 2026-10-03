@@ -336,6 +336,78 @@ function buildReportGrid() {
   }).join('');
 }
 
+/* =========================== BÚSQUEDA DE DIRECCIONES (online + local) =========================== */
+var geoT = null, geoQ = '', geoState = 'idle', geoList = [], searchTarget = 'b';
+function setGeoStatus(txt) {
+  var el = $('#geoStatus');
+  if (!el) return;
+  el.classList.toggle('hidden', !txt);
+  if (txt) $('#geoStatusTxt').textContent = txt;
+}
+function renderSuggest() {
+  var box = $('#searchList');
+  if (!box) return;
+  box.classList.remove('hidden');
+  var local = geoQ ? localSearch(geoQ) : [];
+  var html = local.map(function (p) { return searchRow(p, p.n, 'pin'); }).join('');
+  if (geoList.length) {
+    html += '<div class="sec-h geo-h"><h4>Direcciones en Córdoba</h4></div>' +
+      geoList.map(function (p) { return searchRow(p, p.n, 'pin', p.sub); }).join('');
+  }
+  if (!html) {
+    html = geoState === 'loading' ? emptyHtml('pin', 'Buscando direcciones…', 'Escribí la calle y la altura')
+      : geoState === 'error' ? emptyHtml('warn', 'Sin conexión', 'No pudimos buscar ahora. Probá de nuevo en unos segundos.')
+        : emptyHtml('pin', 'Sin coincidencias', 'Seguí escribiendo: buscamos direcciones en Córdoba');
+  }
+  box.innerHTML = html;
+  hydrate(box);
+}
+function onGeoInput(which) {
+  var inp = $('#inp' + which.toUpperCase());
+  return function () {
+    searchTarget = which;
+    var q = (inp.value || '').toLowerCase().trim();
+    $('[data-clear="' + which + '"]').classList.toggle('on', !!inp.value);
+    if (which === 'b') { pts.b = null; setDestPin(null); }
+    else pts.a = null;
+    clearTimeout(geoT);
+    $('#searchResults').classList.add('hidden');
+    $('#quickPlaces').classList.toggle('hidden', !!q);
+    geoQ = q;
+    geoList = [];
+    if (q.length < 2) {
+      geoState = 'idle';
+      setGeoStatus('');
+      $('#searchListTitle').classList.remove('hidden');
+      renderSearchList();
+      return;
+    }
+    $('#searchListTitle').classList.add('hidden');
+    geoState = 'loading';
+    setGeoStatus('Buscando direcciones…');
+    renderSuggest();
+    geoT = setTimeout(function () {
+      var now = (inp.value || '').toLowerCase().trim();
+      if (now !== geoQ) return;
+      geocodeEx(geoQ).then(function (r) {
+        if (((inp.value || '').toLowerCase().trim()) !== geoQ) return;
+        geoList = r.list;
+        geoState = r.list.length ? 'ok' : (r.err ? 'error' : 'empty');
+        setGeoStatus('');
+        renderSuggest();
+      }).catch(function (e) {
+        if (e && e.name === 'AbortError') return;
+        if (((inp.value || '').toLowerCase().trim()) !== geoQ) return;
+        geoList = [];
+        geoState = 'error';
+        setGeoStatus('');
+        renderSuggest();
+        toast('Sin conexión', 'No pudimos buscar direcciones', 'warn', 'var(--red)');
+      });
+    }, 380);
+  };
+}
+
 /* =========================== EVENTOS =========================== */
 function wire() {
   document.addEventListener('click', function (e) {
@@ -370,10 +442,12 @@ function wire() {
         case 'place': return quickPlace(el.dataset.place);
         case 'pick': {
           var parts = decodeURIComponent(el.dataset.pick).split('|');
-          $('#inpB').value = parts[0];
-          pts.b = { n: parts[0], la: parseFloat(parts[1]), lo: parseFloat(parts[2]) };
-          $('[data-clear="b"]').classList.add('on');
-          setDestPin(pts.b);
+          var tgt = (el.dataset.tgt || searchTarget || 'b').toUpperCase();
+          var pk = { n: parts[0], la: parseFloat(parts[1]), lo: parseFloat(parts[2]) };
+          $('#inp' + tgt).value = parts[0];
+          pts[tgt.toLowerCase()] = pk;
+          $('[data-clear="' + tgt.toLowerCase() + '"]').classList.add('on');
+          if (tgt === 'B') setDestPin(pk);
           hidePopup();
           return;
         }
@@ -486,40 +560,17 @@ function wire() {
     var pa = pts.a; pts.a = pts.b; pts.b = pa;
     setDestPin(pts.b);
   });
-  var geoT = null, lastGeoQ = '';
-  $('#inpB').addEventListener('input', function () {
-    $('[data-clear="b"]').classList.toggle('on', !!this.value);
-    pts.b = null;
-    setDestPin(null);
-    var q = this.value.toLowerCase().trim();
-    clearTimeout(geoT);
-    if (q.length < 2) { $('#searchResults').classList.add('hidden'); $('#searchListTitle').classList.remove('hidden'); $('#searchList').classList.remove('hidden'); $('#quickPlaces').classList.remove('hidden'); return; }
-    var res = localSearch(q);
-    $('#searchListTitle').classList.add('hidden');
-    $('#searchList').classList.remove('hidden');
-    $('#quickPlaces').classList.add('hidden');
-    $('#searchList').innerHTML = res.map(function (p) { return searchRow(p, p.n, 'pin'); }).join('') ||
-      '<div class="empty"><b>Sin coincidencias</b><span>Seguí escribiendo: buscamos direcciones en el mapa</span></div>';
-    if (q.length < 3 || res.length) return;
-    geoT = setTimeout(function () {
-      var val = ($('#inpB').value || '').toLowerCase().trim();
-      if (val !== q || val === lastGeoQ) return;
-      lastGeoQ = val;
-      geocode(val).then(function (g) {
-        var now = ($('#inpB').value || '').toLowerCase().trim();
-        if (now !== val || !g.length) return;
-        var local = localSearch(val).map(function (x) { return x.n; });
-        var extra = g.filter(function (p) { return local.indexOf(p.n) < 0; });
-        if (!extra.length) return;
-        var box = $('#searchList');
-        var html = extra.map(function (p) { return searchRow(p, p.n, 'pin'); }).join('');
-        if (/Sin coincidencias/.test(box.innerHTML)) box.innerHTML = html;
-        else box.insertAdjacentHTML('beforeend', '<div class="sec-h geo-h"><h4>Direcciones en Córdoba</h4></div>' + html);
-        hydrate(box);
-      });
-    }, 430);
+  $('#inpB').addEventListener('input', onGeoInput('b'));
+  $('#inpA').addEventListener('input', onGeoInput('a'));
+  $('#inpA').addEventListener('focus', function () {
+    searchTarget = 'a';
+    if (!pts.a) { this.value = ''; $('[data-clear="a"]').classList.remove('on'); }
+    else this.select();
   });
-  $('#inpA').addEventListener('input', function () { $('[data-clear="a"]').classList.toggle('on', !!this.value); });
+  $('#inpB').addEventListener('focus', function () { searchTarget = 'b'; });
+  $('#inpA').addEventListener('blur', function () {
+    if (!pts.a && !(this.value || '').trim()) { this.value = 'Mi ubicación'; $('[data-clear="a"]').classList.remove('on'); }
+  });
 
   $('#lhFav').addEventListener('click', function () { if (activeLine) toggleFav(activeLine.i); });
   $('#btnCenterLine').addEventListener('click', function () {
@@ -573,7 +624,22 @@ function wire() {
     if (x) endTrip();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') handleBack();
+    if (e.key === 'Escape') { handleBack(); return; }
+    if (e.key !== 'Enter') return;
+    var t = e.target;
+    if (t !== $('#inpB') && t !== $('#inpA')) return;
+    e.preventDefault();
+    var key = t === $('#inpA') ? 'a' : 'b';
+    if (pts[key]) { if (key === 'b') doSearch(); return; }
+    var box = $('#searchList');
+    var row = box && !box.classList.contains('hidden')
+      ? (box.querySelector('.geo-h + .row') || box.querySelector('.row')) : null;
+    if (row) {
+      row.click();
+      if (key === 'b') setTimeout(doSearch, 60);
+      return;
+    }
+    if (key === 'b') doSearch();
   });
 }
 

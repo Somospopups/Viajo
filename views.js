@@ -517,8 +517,10 @@ var pts = { a: null, b: null };
 function initSearch() {
   if (!pts.a) $('#inpA').value = 'Mi ubicación';
   $('#searchResults').classList.add('hidden');
+  $('#searchList').classList.remove('hidden');
   $('#searchListTitle').classList.remove('hidden');
   $('#quickPlaces').classList.remove('hidden');
+  setGeoStatus('');
   renderSearchList();
 }
 function renderSearchList() {
@@ -531,12 +533,14 @@ function renderSearchList() {
   $('#searchListTitle').innerHTML = '<h4>' + (recents.length || casa ? 'Recientes' : 'Destinos sugeridos') + '</h4>';
   if (!html) html = PLACES.slice(0, 5).map(function (p) { return searchRow(p, p.n, 'pin'); }).join('');
   $('#searchList').innerHTML = html;
+  $('#searchList').classList.remove('hidden');
   hydrate($('#v-search'));
 }
-function searchRow(p, label, ico) {
-  return '<div class="row" data-pick="' + encodeURIComponent(p.n) + '|' + p.la + '|' + p.lo + '">' +
+function searchRow(p, label, ico, sub) {
+  var name = String(p.n == null ? '' : p.n).replace(/\|/g, '/');
+  return '<div class="row" data-pick="' + encodeURIComponent(name) + '|' + p.la + '|' + p.lo + '">' +
     '<div class="r-ico">' + icoSvg(ico) + '</div>' +
-    '<div class="r-t"><b>' + label + '</b><span>' + p.n + '</span></div>' +
+    '<div class="r-t"><b>' + esc(label || name) + '</b><span>' + esc(sub || name) + '</span></div>' +
     '<span class="ico chev" data-ico="chevron"></span></div>';
 }
 function localSearch(q) {
@@ -552,11 +556,98 @@ function localSearch(q) {
   }
   return out;
 }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+/* Córdoba capital + alrededores: oeste, sur, este, norte */
+var GEO_BOX = [-64.32, -31.53, -64.05, -31.31];
+function inCordoba(la, lo) {
+  return isFinite(la) && isFinite(lo) && la >= GEO_BOX[1] && la <= GEO_BOX[3] && lo >= GEO_BOX[0] && lo <= GEO_BOX[2];
+}
+var geoAbort = null, geoLast = 0;
+function geoWait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function geoFetch(url) {
+  if (geoAbort) { try { geoAbort.abort(); } catch (e) { /* ya cerrado */ } }
+  geoAbort = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var ctl = geoAbort;
+  return geoWait(Math.max(0, 750 - (Date.now() - geoLast))).then(function () {
+    geoLast = Date.now();
+    var opt = { headers: { Accept: 'application/json' } };
+    if (ctl) opt.signal = ctl.signal;
+    return fetch(url, opt);
+  });
+}
+function nomUrl(q, bounded) {
+  return 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&addressdetails=1&countrycodes=ar&accept-language=es&viewbox=' +
+    GEO_BOX.join(',') + (bounded ? '&bounded=1' : '') + '&q=' + encodeURIComponent(q);
+}
+function photonUrl(q) {
+  return 'https://photon.komoot.io/api/?limit=6&lat=-31.42&lon=-64.19&q=' + encodeURIComponent(q);
+}
+function nomPick(arr) {
+  return (arr || []).map(function (a) {
+    var ad = a.address || {};
+    var road = ad.road || ad.pedestrian || ad.neighbourhood || ad.suburb || a.name || '';
+    var num = ad.house_number ? ' ' + ad.house_number : '';
+    var head = road ? (road + num) : (a.name || String(a.display_name || '').split(',')[0]);
+    var town = ad.city || ad.town || ad.village || ad.municipality || '';
+    var ctx = [ad.suburb && ad.suburb !== head ? ad.suburb : '', town].filter(Boolean).join(' · ');
+    return {
+      n: (head || a.display_name || 'Dirección').replace(/\|/g, '/'),
+      sub: (ctx || a.display_name || '').replace(/\|/g, '/'),
+      la: parseFloat(a.lat), lo: parseFloat(a.lon),
+      far: !inCordoba(parseFloat(a.lat), parseFloat(a.lon))
+    };
+  }).filter(function (p) { return isFinite(p.la) && isFinite(p.lo); });
+}
+function photonPick(feats) {
+  return (feats || []).filter(function (f) { return f && f.geometry && f.geometry.coordinates; }).map(function (f) {
+    var p = f.properties || {};
+    var road = p.street || p.name || p.locality || '';
+    var num = p.housenumber ? ' ' + p.housenumber : '';
+    var town = [p.city || p.district || p.county, p.state].filter(Boolean).join(' · ');
+    var la = f.geometry.coordinates[1], lo = f.geometry.coordinates[0];
+    return {
+      n: ((road + num).trim() || p.name || 'Lugar').replace(/\|/g, '/'),
+      sub: (town || p.country || '').replace(/\|/g, '/'),
+      la: la, lo: lo, far: !inCordoba(la, lo)
+    };
+  }).filter(function (p) { return isFinite(p.la) && isFinite(p.lo); });
+}
+function keepCordoba(list) {
+  var near = list.filter(function (p) { return !p.far; });
+  return near.length ? near : list;
+}
+function geocodeEx(q) {
+  q = (q || '').trim();
+  if (q.length < 2) return Promise.resolve({ list: [], err: false });
+  var failed = false;
+  function pj(r) {
+    if (!r || !r.ok) { failed = true; throw new Error('http ' + (r && r.status)); }
+    return r.json();
+  }
+  function nom(bounded) {
+    return geoFetch(nomUrl(q, bounded)).then(pj).then(nomPick)
+      .catch(function (e) { if (e && e.name === 'AbortError') throw e; failed = true; return null; });
+  }
+  function photon() {
+    return geoFetch(photonUrl(q)).then(pj).then(function (j) { return photonPick(j && j.features); })
+      .catch(function (e) { if (e && e.name === 'AbortError') throw e; failed = true; return []; });
+  }
+  return nom(true).then(function (out) {
+    if (out && out.length) return out;
+    return nom(false);
+  }).then(function (out) {
+    if (out && out.length) return out;
+    return photon();
+  }).then(function (list) {
+    return { list: keepCordoba(list || []), err: failed && !(list && list.length) };
+  });
+}
 function geocode(q) {
-  var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=ar&addressdetails=1&q=' + encodeURIComponent(q + ', Córdoba, Argentina');
-  return fetch(url, { headers: { Accept: 'application/json' } }).then(function (r) { return r.json(); }).then(function (arr) {
-    return arr.map(function (a) { return { n: a.display_name.split(',').slice(0, 3).join(','), la: parseFloat(a.lat), lo: parseFloat(a.lon) }; });
-  }).catch(function () { return []; });
+  return geocodeEx(q).then(function (r) { return r.list; });
 }
 function renderResults(list) {
   var box = $('#searchResults');
@@ -619,8 +710,14 @@ function resolveQuery(q) {
   var found = PLACES.concat(store.get('recents', [])).filter(function (p) { return p.n.toLowerCase() === q.toLowerCase(); })[0];
   if (found) return Promise.resolve(found);
   var local = localSearch(q);
-  if (local.length && local[0].n.toLowerCase().indexOf(q.toLowerCase()) >= 0) return Promise.resolve(local[0]);
-  return geocode(q).then(function (g) { return g.length ? g[0] : (local[0] || null); });
+  var localOk = !!local.length && local[0].n.toLowerCase().indexOf(q.toLowerCase()) >= 0;
+  /* una dirección con número casi siempre es mejor del geocoder que una parada parecida */
+  var preferGeo = /\d/.test(q) || !localOk;
+  return geocode(q).then(function (g) {
+    if (preferGeo && g.length) return g[0];
+    if (localOk) return local[0];
+    return g[0] || local[0] || null;
+  });
 }
 function remember(p) {
   var recents = store.get('recents', []).filter(function (r) { return r.n !== p.n; });
