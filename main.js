@@ -407,14 +407,31 @@ function wire() {
     if (x) endTrip();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-      if (!$('#loginModal').classList.contains('hidden')) closeModal('loginModal');
-      else if (pageOpen) closePage();
-      else if (!$('#menuSheet').classList.contains('hidden')) closeSheet('menuSheet');
-      else if (!$('#reportSheet').classList.contains('hidden')) closeSheet('reportSheet');
-      else backView();
-    }
+    if (e.key === 'Escape') handleBack();
   });
+}
+
+/* ============ BOTÓN ATRÁS DE ANDROID / GESTO DE NAVEGACIÓN ============ */
+function handleBack() {
+  if (!$('#loginModal').classList.contains('hidden')) { closeModal('loginModal'); return true; }
+  if (!$('#reportSheet').classList.contains('hidden')) { closeSheet('reportSheet'); return true; }
+  if (!$('#menuSheet').classList.contains('hidden')) { closeSheet('menuSheet'); return true; }
+  if (!$('#page').classList.contains('hidden') && pageOpen) { closePage(); return true; }
+  if (viewStack.length > 1) { backView(); return true; }
+  if (curPopup) { hidePopup(); return true; }
+  if (document.body.dataset.sheet) { setSheet(null); return true; }
+  if (!$('#etaBar').classList.contains('hidden')) { endTrip(); return true; }
+  return false;
+}
+function initHistory() {
+  try {
+    history.replaceState({ bw: 'root' }, '');
+    window.addEventListener('popstate', function () {
+      handleBack();
+      try { history.pushState({ bw: 'root' }, ''); } catch (e) {}
+    });
+    history.pushState({ bw: 'cur' }, '');
+  } catch (e) {}
 }
 function popupAlert(a) {
   return '<div class="wz-pop"><div class="p-top"><span class="p-badge" style="background:' + a.bg + '">' + icoSvg(a.ico) + '</span>' +
@@ -467,6 +484,7 @@ function boot() {
   buildReportGrid();
   buildIndexes();
   wire();
+  initHistory();
   initSheet();
   initMap();
   if (store.get('dark')) setTileMode('dark');
