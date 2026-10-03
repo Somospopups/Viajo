@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#33CCFF">
-<meta name="description" content="Bondi · Transporte público de Córdoba Capital: líneas, paradas, próximos arribos, horarios y reportes de la comunidad.">
+<meta name="description" content="Bondi · Transporte público de Córdoba Capital: líneas, paradas, próximos arribos, horarios y tráfico en tiempo real.">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="style.css?v=183">
+<link rel="stylesheet" href="style.css?v=184">
 </head>
 <body>
 
@@ -60,11 +60,9 @@
   <div id="mapCtl">
     <button class="fab" id="btnLocate" type="button" title="Mi ubicación"><span class="ico" data-ico="locate"></span></button>
     <button class="fab" id="btnFav" type="button" title="Favoritos"><span class="ico" data-ico="heart"></span></button>
-    <button class="fab" id="btnAlerts" type="button" title="Alertas"><span class="ico" data-ico="bell"></span><span class="fab-dot"></span></button>
   </div>
 
-  <!-- reportar + líneas -->
-  <button id="reportFab" type="button" title="Reportar"><span class="ico" data-ico="plus"></span></button>
+  <!-- líneas -->
   <button id="linesFab" type="button" title="Líneas"><span class="ico" data-ico="bus"></span></button>
 
   <!-- tira flotante de líneas (circulitos desplazables) -->
@@ -243,7 +241,6 @@
   <div class="menu-list">
     <button class="m-item" type="button" data-open="lines"><span class="m-ico" data-ico="bus"></span>Encontrá tu bondi<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="nearby"><span class="m-ico" data-ico="locate"></span>Paradas cercanas<span class="ico chev" data-ico="chevron"></span></button>
-    <button class="m-item" type="button" data-open="sube"><span class="m-ico" data-ico="card"></span>Puntos de recarga SUBE<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="howto"><span class="m-ico" data-ico="info"></span>Cómo usar la app<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="notif"><span class="m-ico" data-ico="bell"></span>Notificaciones<span class="m-badge hidden" id="menuNotifDot"></span><span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="social"><span class="m-ico" data-ico="like"></span>Redes sociales<span class="ico chev" data-ico="chevron"></span></button>
@@ -257,16 +254,6 @@
     <button class="m-item danger" type="button" id="btnLogout"><span class="m-ico" data-ico="logout"></span>Cerrar sesión</button>
   </div>
   <div class="menu-foot">Bondi <span id="appVersion">v1</span> · Datos de líneas y paradas: TU BONDI Córdoba</div>
-</section>
-
-<!-- ===================== REPORTAR ===================== -->
-<div class="overlay hidden" id="reportOverlay"></div>
-<section class="o-sheet hidden" id="reportSheet">
-  <div class="o-handle"><span></span></div>
-  <div class="o-head"><h3>Reportar</h3><p>¿Qué estás viendo? Los reportes ayudan a toda la comunidad</p></div>
-  <div class="rep-grid" id="repGrid"></div>
-  <div class="rep-me" id="repLocation">Reportás sobre: <b>tu ubicación</b></div>
-  <button class="btn ghost wide" id="repCancel" type="button">Cancelar</button>
 </section>
 
 <!-- ===================== LOGIN ===================== -->
@@ -340,10 +327,10 @@
 <div id="loader" class="hidden"><div class="spin"></div><span id="loaderTxt">Buscando líneas…</span></div>
 
 <script src="vendor/leaflet.js"></script>
-<script src="data.js?v=183"></script>
-<script src="core.js?v=183"></script>
-<script src="bici.js?v=183"></script>
-<script src="views.js?v=183"></script>
-<script src="main.js?v=183"></script>
+<script src="data.js?v=184"></script>
+<script src="core.js?v=184"></script>
+<script src="bici.js?v=184"></script>
+<script src="views.js?v=184"></script>
+<script src="main.js?v=184"></script>
 </body>
 </html>

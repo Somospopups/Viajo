@@ -1,4 +1,4 @@
-/* Bondi · páginas, menú, reportes y arranque */
+/* Bondi · páginas, menú, inicio y sesión */
 'use strict';
 
 var LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><defs><linearGradient id="bw-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5FDBFF"/><stop offset="1" stop-color="#22BEF2"/></linearGradient></defs><rect x="14" y="16" width="100" height="84" rx="26" fill="url(#bw-g)"/><rect x="27" y="30" width="74" height="40" rx="18" fill="#EAFBFF"/><circle cx="47" cy="49" r="7.5" fill="#12212E"/><circle cx="81" cy="49" r="7.5" fill="#12212E"/><circle cx="49.5" cy="46.5" r="2.4" fill="#fff"/><circle cx="83.5" cy="46.5" r="2.4" fill="#fff"/><path d="M48 80 Q64 94 80 80" stroke="#0C2B3B" stroke-width="7" stroke-linecap="round" fill="none"/><rect x="24" y="96" width="26" height="16" rx="8" fill="#12212E"/><rect x="78" y="96" width="26" height="16" rx="8" fill="#12212E"/><rect x="16" y="44" width="8" height="20" rx="4" fill="#0C2B3B" opacity=".35"/><rect x="104" y="44" width="8" height="20" rx="4" fill="#0C2B3B" opacity=".35"/></svg>';
@@ -57,27 +57,13 @@ var PAGES = {
   howto: {
     title: 'Cómo funciona',
     html: function () {
-      return hero('info', 'Bondi en 4 pasos', 'Planificá, seguí y reportá tu viaje en bondi') +
+      return hero('info', 'Bondi en 3 pasos', 'Planificá y seguí tu viaje en bondi') +
         '<div class="p-sec"><h4>Empezá por acá</h4><div class="steps">' +
         '<div class="step-card"><span class="n">1</span><div><b>Buscá tu línea</b><p>Tocá “Líneas” y filtrá por número o destino. Guardá tus favoritas con la estrella.</p></div></div>' +
         '<div class="step-card"><span class="n">2</span><div><b>Mirá los próximos arribos</b><p>Cada parada te muestra cuánto falta para la próxima unidad con el diagrama de operación.</p></div></div>' +
         '<div class="step-card"><span class="n">3</span><div><b>Planeá A → B</b><p>Decinos desde dónde salís y a dónde vas: te damos opciones con caminata, bondi y combinaciones.</p></div></div>' +
-        '<div class="step-card"><span class="n">4</span><div><b>Reportá y ayudá a todos</b><p>Pozos, cortes, controles: tus reportes aparecen en el mapa para toda la comunidad.</p></div></div>' +
         '</div></div>' +
         '<div class="p-sec"><h4>Truco</h4><div class="card"><p class="muted">Deslizá el panel hacia arriba para verlo completo, o usá el botón de la barra superior para volver al mapa.</p></div></div>';
-    }
-  },
-  sube: {
-    title: 'Recarga SUBE',
-    html: function () {
-      return hero('card', 'Puntos de recarga SUBE', 'Recargá tu tarjeta para subirte a los bondis del sistema') +
-        '<div class="p-sec"><h4>Dónde recargar</h4><div class="p-list">' +
-        pItem('store', 'Comercios adheridos', 'Quioscos, loterías y locales habilitados en toda la ciudad.') +
-        pItem('grid', 'Centros de atención', 'Puntos de venta oficiales del sistema SUBE.') +
-        pItem('phone', 'App y bancos', 'Desde la app SUBE o los bancos adheridos a la recarga online.') +
-        '</div></div>' +
-        '<div class="p-sec"><h4>Consejos</h4><div class="card"><p class="muted">Consultá el saldo antes de subirte, respetá los horarios de cada línea y guardá la tarjeta en un mismo lugar para no perderla. Los valores y horarios oficiales los publica el municipio y TU BONDI.</p></div></div>' +
-        '<div class="line-actions"><a class="btn primary" style="text-decoration:none" href="https://micronauta4.dnsalias.net/web/urbano/?conf=cbaciudad" target="_blank" rel="noopener">' + icoSvg('arrow') + 'Ver info oficial</a></div>';
     }
   },
   bici: {
@@ -120,7 +106,6 @@ var PAGES = {
       return hero('bell', 'Notificaciones', 'Elegí qué querés que te avisemos') +
         '<div class="p-sec"><h4>Tus avisos</h4><div class="p-list">' +
         sw('n1', 'Próximos arribos', 'Avisarte cuando tu bondi esté por pasar por tu parada.', true) +
-        sw('n2', 'Alertas en tu zona', 'Accidentes, cortes y control cerca tuyo.', true) +
         sw('n3', 'Novedades de líneas', 'Cambios de recorrido y horarios especiales.', false) +
         sw('n4', 'Resumen diario', 'Un mensaje por la mañana con tus líneas.', false) +
         '</div></div>';
@@ -167,7 +152,7 @@ var PAGES = {
     html: function () {
       return hero('bus', 'Bondi ' + APP_VERSION, 'Transporte público de Córdoba Capital') +
         '<div class="p-sec"><h4>Sobre la app</h4><div class="p-list">' +
-        pItem('map', 'Mapa y comunidad', 'Reportes, alertas y tráfico de la comunidad para que viajes mejor.') +
+        pItem('map', 'Mapa y comunidad', 'Paradas, recorridos y tráfico en vivo de la comunidad para que viajes mejor.') +
         pItem('bus', 'Datos de líneas', 'Recorridos, paradas y horarios provistos por TU BONDI Córdoba.') +
         pItem('info', 'Tiempos de llegada', 'Combinamos el diagrama de operación con la posición de las unidades.') +
         '</div></div>' +
@@ -180,7 +165,7 @@ var PAGES = {
     html: function () {
       return hero('like', 'Seguinos', 'Novedades, cambios de recorrido y concursos') +
         '<div class="p-sec"><div class="p-list">' +
-        pItem('chat', 'Comunidad Bondi', 'Contanos tu viaje y reportá mejoras.') +
+        pItem('chat', 'Comunidad Bondi', 'Contanos tu viaje y contanos qué mejorar.') +
         pItem('share', 'Compartir la app', 'Mandásela a quien viaja en bondi todos los días.') +
         '</div></div>' +
         '<div class="line-actions"><button class="btn primary" id="btnShareApp">' + icoSvg('share') + 'Compartir app</button>' +
@@ -329,13 +314,6 @@ function saveSpot() {
   toast('Guardado', spotSel.n, 'check', 'var(--green)');
 }
 
-/* =========================== REPORTAR =========================== */
-function buildReportGrid() {
-  $('#repGrid').innerHTML = ALERT_TYPES.map(function (t) {
-    return '<button class="rep-item" type="button" data-rep="' + t.id + '"><span class="ri" style="background:' + t.bg + '">' + icoSvg(t.ico) + '</span><b>' + t.t + '</b></button>';
-  }).join('');
-}
-
 /* =========================== BÚSQUEDA DE DIRECCIONES (online + local) =========================== */
 var geoT = null, geoQ = '', geoState = 'idle', geoList = [], searchTarget = 'b';
 function setGeoStatus(txt) {
@@ -411,7 +389,7 @@ function onGeoInput(which) {
 /* =========================== EVENTOS =========================== */
 function wire() {
   document.addEventListener('click', function (e) {
-    var sel = ['[data-fav]', '[data-pop]', '[data-confirm]', '[data-dismiss]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-rep]', '[data-opt]', '[data-goto]', '[data-alert]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]', '[data-spot]', '[data-spotpick]', '[data-strip]', '[data-dir]', '[data-bici]'];
+    var sel = ['[data-fav]', '[data-pop]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-opt]', '[data-goto]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]', '[data-spot]', '[data-spotpick]', '[data-strip]', '[data-dir]', '[data-bici]'];
     for (var i = 0; i < sel.length; i++) {
       var el = e.target.closest(sel[i]);
       if (!el) continue;
@@ -419,8 +397,6 @@ function wire() {
       switch (k) {
         case 'fav': e.stopPropagation(); toggleFav(el.dataset.fav); return;
         case 'pop': hidePopup(); return;
-        case 'confirm': toast('Gracias', 'Confirmaste este reporte', 'check', 'var(--green)'); removeAlert(parseInt(el.dataset.confirm, 10)); hidePopup(); return;
-        case 'dismiss': removeAlert(parseInt(el.dataset.dismiss, 10)); hidePopup(); toast('Descartado', 'Se quitó del mapa', 'check', 'var(--muted)'); return;
         case 'navto': {
           var si = parseInt(el.dataset.navto, 10);
           hidePopup();
@@ -451,14 +427,6 @@ function wire() {
           hidePopup();
           return;
         }
-        case 'rep': {
-          var pos = myPos();
-          var a = addAlert(el.dataset.rep, pos.lat, pos.lng);
-          closeSheet('reportSheet');
-          push('Reporte enviado', a.t + ' en tu ubicación. ¡Gracias por ayudar a la comunidad!');
-          toast('Reporte publicado', a.t, a.ico, a.bg);
-          return;
-        }
         case 'opt': return startTrip(planOptions[parseInt(el.dataset.opt, 10)]);
         case 'goto': {
           var g = el.dataset.goto.split('|');
@@ -467,11 +435,6 @@ function wire() {
           setDestPin(pts.b);
           openView('v-search');
           doSearch();
-          return;
-        }
-        case 'alert': {
-          var al = ALERTS.filter(function (x) { return x.id === parseInt(el.dataset.alert, 10); })[0];
-          if (al) { map.flyTo([al.lat, al.lon], 16); showPopup([al.lat, al.lon], popupAlert(al)); }
           return;
         }
         case 'stop': hidePopup(); openStopView(parseInt(el.dataset.stop, 10)); return;
@@ -498,7 +461,6 @@ function wire() {
   $('#btnProfile').addEventListener('click', function () { openSheet('menuSheet'); });
   $('#btnLocate').addEventListener('click', locateMe);
   $('#btnFav').addEventListener('click', function () { openView('v-fav'); });
-  $('#reportFab').addEventListener('click', function () { openSheet('reportSheet'); });
   $('#linesFab').addEventListener('click', function () { toggleStrip(); });
   $('#stripClose').addEventListener('click', function () { toggleStrip(false); });
   $('#dirCancel').addEventListener('click', function () { closeModal('dirModal'); });
@@ -547,12 +509,6 @@ function wire() {
   $('#spotInput').addEventListener('input', function () { spotSel = null; renderSpotList(this.value); });
   $('#spotSave').addEventListener('click', saveSpot);
   $('#spotCancel').addEventListener('click', function () { closeModal('spotModal'); });
-  $('#btnAlerts').addEventListener('click', function () {
-    if (!ALERTS.length) { toast('Sin alertas', 'No hay reportes activos', 'bell', 'var(--green)'); return; }
-    var b = L.latLngBounds(ALERTS.map(function (a) { return [a.lat, a.lon]; }));
-    map.fitBounds(b, { padding: [70, 70] });
-    toast(ALERTS.length + ' alertas en el mapa', 'Tocá un ícono para confirmarla', 'bell', 'var(--red)');
-  });
   $('#btnDoSearch').addEventListener('click', doSearch);
   $('#btnSwap').addEventListener('click', function () {
     var a = $('#inpA').value, b = $('#inpB').value;
@@ -594,8 +550,6 @@ function wire() {
   $('#btnShareTrip').addEventListener('click', shareApp);
   $('#btnTripAll').addEventListener('click', function () { if (tripOpt) startTrip(tripOpt); });
   $('#pageBack').addEventListener('click', closePage);
-  $('#repCancel').addEventListener('click', function () { closeSheet('reportSheet'); });
-  $('#reportOverlay').addEventListener('click', function () { closeSheet('reportSheet'); });
   $('#menuOverlay').addEventListener('click', function () { closeSheet('menuSheet'); });
   $('#btnLogin').addEventListener('click', function () { openModal('loginModal'); });
   $('#btnGoogle').addEventListener('click', function () {
@@ -649,7 +603,6 @@ function handleBack() {
   if (!$('#loginModal').classList.contains('hidden')) { closeModal('loginModal'); return true; }
   if (!$('#dirModal').classList.contains('hidden')) { closeModal('dirModal'); return true; }
   if (!$('#spotModal').classList.contains('hidden')) { closeModal('spotModal'); return true; }
-  if (!$('#reportSheet').classList.contains('hidden')) { closeSheet('reportSheet'); return true; }
   if (!$('#menuSheet').classList.contains('hidden')) { closeSheet('menuSheet'); return true; }
   if (!$('#page').classList.contains('hidden') && pageOpen) { closePage(); return true; }
   if (viewStack.length > 1) { backView(); return true; }
@@ -685,16 +638,6 @@ function initHistory() {
     });
     history.pushState({ bw: 'cur' }, '');
   } catch (e) {}
-}
-function popupAlert(a) {
-  return '<div class="wz-pop"><div class="p-top"><span class="p-badge" style="background:' + a.bg + '">' + icoSvg(a.ico) + '</span>' +
-    '<div class="p-t"><b>' + a.t + '</b><span>' + a.s + '</span></div>' +
-    '<button class="p-close" data-pop="1">' + icoSvg('close') + '</button></div>' +
-    '<div class="p-foot"><button data-confirm="' + a.id + '">Confirmar</button><button class="ghost" data-dismiss="' + a.id + '">Descartar</button></div></div>';
-}
-function removeAlert(id) {
-  ALERTS = ALERTS.filter(function (a) { return a.id !== id; });
-  renderAlerts();
 }
 /* ===================== BICICBA · ESTACIONES ===================== */
 function renderBici() {
@@ -742,12 +685,10 @@ function dataOpen(key) {
   if (key === 'lines') { closeSheet('menuSheet'); backToMap(); toggleStrip(true); return; }
   if (key === 'nearby') { closeSheet('menuSheet'); openView('v-nearby'); return; }
   if (key === 'fav') { closeSheet('menuSheet'); openView('v-fav'); return; }
-  if (key === 'report') { openSheet('reportSheet'); return; }
   closeSheet('menuSheet');
   openPage(key);
 }
 function dataNav(key) {
-  if (key === 'report') { openSheet('reportSheet'); return; }
   if (key === 'menu') { openSheet('menuSheet'); return; }
   if (key === 'search') { backToMap(); return; }
   if (key === 'fav') { openView('v-fav'); }
@@ -775,13 +716,11 @@ function boot() {
   $('#loginAva').innerHTML = AVA_SVG;
   $('#btnProfile').innerHTML = AVA_SVG;
   $('#exitAva').innerHTML = LOGO_SVG;
-  buildReportGrid();
   buildIndexes();
   wire();
   initHistory();
   initMap();
   if (store.get('dark')) setTileMode('dark');
-  renderAlerts();
   setUserLocation(CBA[0], CBA[1]);
   startSim();
   renderLineStrip();

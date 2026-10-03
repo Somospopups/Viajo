@@ -89,62 +89,6 @@ function nearestArrivals(limit, maxM) {
   out.sort(function (a, b) { return a.arr.min - b.arr.min; });
   return out.slice(0, limit || 5);
 }
-function alertRow(a) {
-  return '<div class="row" data-alert="' + a.id + '">' +
-    '<div class="r-ico" style="background:' + a.bg + ';color:#fff">' + icoSvg(a.ico) + '</div>' +
-    '<div class="r-t"><b>' + a.t + '</b><span>' + a.s + '</span></div>' +
-    '<span class="ico chev" data-ico="chevron"></span></div>';
-}
-
-/* =========================== ALERTAS / TRÁFICO =========================== */
-var ALERT_TYPES = [
-  { id: 'accident', t: 'Accidente', ico: 'warn', c: '#E23B3B', bg: '#FF4B4B' },
-  { id: 'police', t: 'Control policial', ico: 'shield', c: '#1B8FFF', bg: '#1B8FFF' },
-  { id: 'hazard', t: 'Pozo / bache', ico: 'cone', c: '#D97100', bg: '#FF8A1E' },
-  { id: 'traffic', t: 'Tráfico intenso', ico: 'car', c: '#E23B3B', bg: '#FF6B00' },
-  { id: 'event', t: 'Evento', ico: 'flag', c: '#7C4DFF', bg: '#7C4DFF' },
-  { id: 'flood', t: 'Calle anegada', ico: 'warn', c: '#0FA6D8', bg: '#00A3D8' },
-  { id: 'closed', t: 'Calle cortada', ico: 'cone', c: '#D97100', bg: '#FFB800' },
-  { id: 'other', t: 'Otro aviso', ico: 'info', c: '#4C5D6B', bg: '#8A97A3' }
-];
-var ALERTS = [
-  { id: 1, lat: -31.4207, lon: -64.1998, type: 'traffic', t: 'Tráfico intenso', s: 'Av. Colón · hace 6 min', ico: 'car', c: '#FF6B00', bg: '#FF6B00' },
-  { id: 2, lat: -31.4303, lon: -64.2135, type: 'accident', t: 'Accidente', s: 'Av. Vélez Sarsfield · hace 12 min', ico: 'warn', c: '#FF4B4B', bg: '#FF4B4B' },
-  { id: 3, lat: -31.4144, lon: -64.1861, type: 'police', t: 'Control policial', s: 'Bv. Illia · hace 3 min', ico: 'shield', c: '#1B8FFF', bg: '#1B8FFF' },
-  { id: 4, lat: -31.4372, lon: -64.1901, type: 'hazard', t: 'Pozo grande', s: 'Av. Duarte Quiroga · hace 21 min', ico: 'cone', c: '#FF8A1E', bg: '#FF8A1E' },
-  { id: 5, lat: -31.4267, lon: -64.1759, type: 'event', t: 'Feria de artesanos', s: 'Plaza de las Américas', ico: 'flag', c: '#7C4DFF', bg: '#7C4DFF' },
-  { id: 6, lat: -31.4102, lon: -64.2043, type: 'flood', t: 'Calle anegada', s: 'Av. Ramón Cáceres', ico: 'warn', c: '#00A3D8', bg: '#00A3D8' }
-];
-var alertSeq = 7;
-function renderAlerts() {
-  layerAlerts.clearLayers();
-  ALERTS.forEach(function (a) {
-    var m = L.marker([a.lat, a.lon], {
-      icon: L.divIcon({
-        className: 'mk-alertwrap',
-        html: '<div class="mk-alert" style="background:' + a.bg + '">' + icoSvg(a.ico) + '</div>',
-        iconSize: [34, 34], iconAnchor: [17, 17]
-      }),
-      zIndexOffset: 600
-    }).addTo(layerAlerts);
-    m.on('click', function (e) {
-      L.DomEvent.stopPropagation(e);
-      showPopup(e.latlng,
-        '<div class="wz-pop"><div class="p-top"><span class="p-badge" style="background:' + a.bg + '">' + icoSvg(a.ico) + '</span>' +
-        '<div class="p-t"><b>' + a.t + '</b><span>' + a.s + '</span></div>' +
-        '<button class="p-close" data-pop="1">' + icoSvg('close') + '</button></div>' +
-        '<div class="p-foot"><button data-confirm="' + a.id + '">Confirmar</button><button class="ghost" data-dismiss="' + a.id + '">Descartar</button></div></div>');
-    });
-  });
-  $('#btnAlerts .fab-dot').classList.toggle('on', ALERTS.length > 0);
-}
-function addAlert(typeId, lat, lon) {
-  var t = ALERT_TYPES.filter(function (x) { return x.id === typeId; })[0] || ALERT_TYPES[7];
-  var a = { id: alertSeq++, lat: lat, lon: lon, type: t.id, t: t.t, s: 'Reportado por vos · recién', ico: t.ico, c: t.c, bg: t.bg };
-  ALERTS.unshift(a);
-  renderAlerts();
-  return a;
-}
 
 /* =========================== LÍNEAS: TIRA FLOTANTE + RECORRIDO =========================== */
 var activeLine = null, activeKey = null, activeRoute = 0, etaSubs = [];
