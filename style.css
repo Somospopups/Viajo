@@ -509,6 +509,9 @@ body.dark .eta-r{background:rgba(255,75,75,.2);color:#FF8080}
 .ds-in{display:block;transform-style:preserve-3d}
 .ds-t{display:block;font-size:12px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--blue-700);margin-bottom:7px}
 .ds-r{display:block;font-size:15.5px;font-weight:700;line-height:1.35;color:var(--navy)}
+.ds-l{display:block}
+.ds-l + .ds-l{margin-top:3px;color:var(--blue-700)}
+.ds-l.hide{display:none}
 .ds-m{display:block;font-size:11.5px;color:var(--muted);margin-top:7px}
 .dir-sense.flip .ds-in{animation:senseFlip .5s cubic-bezier(.35,1,.4,1)}
 .dir-flip.turn{transform:rotate(-180deg)}

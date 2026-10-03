@@ -166,18 +166,23 @@ function toggleStrip(on) {
 function dirTitleCase(s) {
   return String(s || '').replace(/\S+/g, function (w) { return w.charAt(0) + w.slice(1).toLowerCase(); });
 }
-function dirWay(r) {
+/* dos renglones: "De barrio…" y "a barrio…" */
+function dirEnds(r) {
   var n = (r && r.n) || '';
   var p = n.split(' A ');
-  return p.length === 2 ? 'De ' + dirTitleCase(p[0]) + ' a ' + dirTitleCase(p[1]) : n;
+  if (p.length === 2) return ['De ' + dirTitleCase(p[0]), 'a ' + dirTitleCase(p[1])];
+  return [n, ''];
 }
 function renderDirSense() {
   var l = activeLine;
   if (!l) return;
   var r = l.r[activeRoute] || l.r[0];
   if (!r) return;
+  var e = dirEnds(r);
   $('#dsT').textContent = r.s === 'V' ? 'Vuelta' : 'Ida';
-  $('#dsR').textContent = dirWay(r);
+  $('#dsR1').textContent = e[0];
+  $('#dsR2').textContent = e[1];
+  $('#dsR2').classList.toggle('hide', !e[1]);
   $('#dsM').textContent = r.k.toFixed(1).replace('.', ',') + ' km · ' + r.p + ' paradas';
   $('#dirSense').setAttribute('data-dir', activeRoute);
   $('#dirGo').setAttribute('data-dir', activeRoute);
