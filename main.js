@@ -499,6 +499,7 @@ function quickPlace(k) {
 function boot() {
   hydrate(document);
   $('#splashLogo').innerHTML = LOGO_SVG;
+  $('#splashVer').textContent = 'Versión ' + RELEASE;
   $('#appVersion').textContent = APP_VERSION;
   $('#navAva').innerHTML = AVA_SVG;
   $('#profileAva').innerHTML = AVA_SVG;
