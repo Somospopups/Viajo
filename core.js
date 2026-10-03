@@ -1,7 +1,7 @@
 /* Bondi · núcleo: iconos, utilidades, índices, mapa y simulación */
 'use strict';
 
-var APP_VERSION = 'v174';
+var APP_VERSION = 'v175';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
 function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
@@ -278,6 +278,7 @@ function locateMe() {
 }
 
 /* =========================== SIMULACIÓN DE BONDIS =========================== */
+var BUS_MARKERS = false; /* los bondis no se dibujan en el mapa: solo se ve tu punto (siguen simulándose para los arribos) */
 var buses = [], simRoutes = [];
 function pickSimRoutes() {
   var used = {}, list = [];
@@ -304,7 +305,8 @@ function spawnBus(key, dist) {
       iconSize: [34, 34], iconAnchor: [17, 17]
     }),
     zIndexOffset: 500
-  }).addTo(layerBuses);
+  });
+  if (BUS_MARKERS) el.addTo(layerBuses);
   var b = { key: key, dist: dist % len, speed: speed, len: len, el: el, coche: 1000 + (hash(key + dist) % 899), dem: '' };
   buses.push(b);
   return b;
