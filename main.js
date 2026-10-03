@@ -250,8 +250,8 @@ function toggleFav(id) {
   else { favs.push(id); toast('Guardado en favoritos', l ? 'Línea ' + l.n + ' siempre a mano' : '', 'star', 'var(--amber)'); }
   store.set('favLines', favs);
   if (activeLine && activeLine.i === id) $('#lhFav').classList.toggle('on', favs.indexOf(id) >= 0);
-  renderHome();
   if (!$('#v-lines').classList.contains('hidden')) renderLinesList();
+  if (!$('#v-fav').classList.contains('hidden')) renderFav();
 }
 function setAccount(name, mail, logged) {
   $('#profileName').textContent = name;
@@ -395,6 +395,8 @@ function wire() {
   $('#btnLocate').addEventListener('click', locateMe);
   $('#btnFav').addEventListener('click', function () { openView('v-fav'); });
   $('#reportFab').addEventListener('click', function () { openSheet('reportSheet'); });
+  $('#linesFab').addEventListener('click', function () { openView('v-lines'); });
+  $('#panelBack').addEventListener('click', function () { backView(); });
   $('#spotInput').addEventListener('input', function () { spotSel = null; renderSpotList(this.value); });
   $('#spotSave').addEventListener('click', saveSpot);
   $('#spotCancel').addEventListener('click', function () { closeModal('spotModal'); });
@@ -404,7 +406,6 @@ function wire() {
     map.fitBounds(b, { padding: [70, 70] });
     toast(ALERTS.length + ' alertas en el mapa', 'Tocá un ícono para confirmarla', 'bell', 'var(--red)');
   });
-  $('#btnAllAlerts').addEventListener('click', function () { $('#btnAlerts').click(); });
   $('#btnDoSearch').addEventListener('click', doSearch);
   $('#btnSwap').addEventListener('click', function () {
     var a = $('#inpA').value, b = $('#inpB').value;
@@ -521,13 +522,12 @@ function popupAlert(a) {
 function removeAlert(id) {
   ALERTS = ALERTS.filter(function (a) { return a.id !== id; });
   renderAlerts();
-  renderHome();
 }
 function dataOpen(key) {
-  if (key === 'search') { openView('v-search'); return; }
-  if (key === 'lines') { openView('v-lines'); return; }
-  if (key === 'nearby') { openView('v-nearby'); return; }
-  if (key === 'fav') { openView('v-fav'); return; }
+  if (key === 'search') { closeSheet('menuSheet'); openView('v-search'); return; }
+  if (key === 'lines') { closeSheet('menuSheet'); openView('v-lines'); return; }
+  if (key === 'nearby') { closeSheet('menuSheet'); openView('v-nearby'); return; }
+  if (key === 'fav') { closeSheet('menuSheet'); openView('v-fav'); return; }
   if (key === 'report') { openSheet('reportSheet'); return; }
   closeSheet('menuSheet');
   openPage(key);
@@ -535,7 +535,7 @@ function dataOpen(key) {
 function dataNav(key) {
   if (key === 'report') { openSheet('reportSheet'); return; }
   if (key === 'menu') { openSheet('menuSheet'); return; }
-  if (key === 'search') { openView('v-home'); setSheet(null); viewStack = ['v-home']; syncHandle(); return; }
+  if (key === 'search') { backToMap(); return; }
   if (key === 'fav') { openView('v-fav'); }
 }
 function quickPlace(k) {
@@ -565,13 +565,11 @@ function boot() {
   buildIndexes();
   wire();
   initHistory();
-  initSheet();
   initMap();
   if (store.get('dark')) setTileMode('dark');
   renderAlerts();
   setUserLocation(CBA[0], CBA[1]);
   startSim();
-  renderHome();
   renderLineChips();
   renderSearchList();
   setAccount(store.get('logged') ? 'Invitado' : 'Invitado', store.get('logged') ? 'sincronización en este dispositivo' : 'Iniciá sesión para sincronizar', !!store.get('logged'));
@@ -584,7 +582,6 @@ function boot() {
     $('#app').classList.remove('hidden');
     map.invalidateSize();
     hydrate(document);
-    renderHome();
     setTimeout(function () {
       locateMe();
       var fav = store.get('favLines', []);

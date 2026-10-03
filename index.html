@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="style.css?v=177">
+<link rel="stylesheet" href="style.css?v=178">
 </head>
 <body>
 
@@ -55,48 +55,16 @@
     <button class="fab" id="btnAlerts" type="button" title="Alertas"><span class="ico" data-ico="bell"></span><span class="fab-dot"></span></button>
   </div>
 
-  <!-- reportar -->
+  <!-- reportar + líneas -->
   <button id="reportFab" type="button" title="Reportar"><span class="ico" data-ico="plus"></span></button>
+  <button id="linesFab" type="button" title="Líneas"><span class="ico" data-ico="bus"></span></button>
 
-  <!-- bottom sheet -->
-  <section id="sheet">
-    <div id="handle"><span></span></div>
+  <!-- panel de contenido a pantalla completa -->
+  <div id="panel">
+    <div id="panelBar">
+      <button id="panelBack" type="button" title="Volver"><span class="ico" data-ico="back"></span></button>
+    </div>
     <div id="views">
-
-      <!-- ---------- HOME ---------- -->
-      <div class="view" id="v-home">
-        <button class="mini-search" type="button" data-open="search">
-          <span class="ico" data-ico="search"></span><span>¿A dónde vas?</span>
-        </button>
-        <div class="chips" id="homeChips">
-          <button class="chip" type="button" data-open="lines"><span class="chip-ico blue" data-ico="bus"></span>Líneas</button>
-          <button class="chip" type="button" data-open="nearby"><span class="chip-ico blue" data-ico="locate"></span>Cerca mío</button>
-          <button class="chip" type="button" data-open="sched"><span class="chip-ico blue" data-ico="clock"></span>Horarios</button>
-          <button class="chip" type="button" data-open="sube"><span class="chip-ico blue" data-ico="card"></span>Recarga</button>
-          <button class="chip" type="button" data-open="bici"><span class="chip-ico blue" data-ico="bike"></span>BiciCba</button>
-        </div>
-
-        <div class="sec" id="secFavs">
-          <div class="sec-h"><h4>Tus líneas favoritas</h4><button type="button" class="link-btn" data-open="lines">Ver todas</button></div>
-          <div class="row-cards" id="homeFavs"></div>
-        </div>
-
-        <div class="sec">
-          <div class="sec-h"><h4>Próximos arribos cerca tuyo</h4></div>
-          <div class="list" id="homeArrivals"></div>
-        </div>
-
-        <div class="sec">
-          <div class="sec-h"><h4>Alertas de la comunidad</h4><button type="button" class="link-btn" id="btnAllAlerts">Ver mapa</button></div>
-          <div class="list" id="homeAlerts"></div>
-        </div>
-
-        <div class="promo" data-open="howto">
-          <div class="promo-ico" data-ico="info"></div>
-          <div><b>¿Cómo funciona Bondi?</b><span>Descubrí en 4 pasos cómo llegar más rápido</span></div>
-          <span class="ico chev" data-ico="chevron"></span>
-        </div>
-      </div>
 
       <!-- ---------- BUSCAR (origen / destino) ---------- -->
       <div class="view hidden" id="v-search">
@@ -223,7 +191,7 @@
       </div>
 
     </div>
-  </section>
+  </div>
 </div>
 
 <!-- ===================== PÁGINA COMPLETA (submenús) ===================== -->
@@ -247,6 +215,7 @@
   </div>
   <div class="menu-list">
     <button class="m-item" type="button" data-open="lines"><span class="m-ico" data-ico="bus"></span>Encontrá tu bondi<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="nearby"><span class="m-ico" data-ico="locate"></span>Paradas cercanas<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="sube"><span class="m-ico" data-ico="card"></span>Puntos de recarga SUBE<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="howto"><span class="m-ico" data-ico="info"></span>Cómo usar la app<span class="ico chev" data-ico="chevron"></span></button>
     <button class="m-item" type="button" data-open="notif"><span class="m-ico" data-ico="bell"></span>Notificaciones<span class="m-badge hidden" id="menuNotifDot"></span><span class="ico chev" data-ico="chevron"></span></button>
@@ -323,9 +292,9 @@
 <div id="loader" class="hidden"><div class="spin"></div><span id="loaderTxt">Buscando líneas…</span></div>
 
 <script src="vendor/leaflet.js"></script>
-<script src="data.js?v=177"></script>
-<script src="core.js?v=177"></script>
-<script src="views.js?v=177"></script>
-<script src="main.js?v=177"></script>
+<script src="data.js?v=178"></script>
+<script src="core.js?v=178"></script>
+<script src="views.js?v=178"></script>
+<script src="main.js?v=178"></script>
 </body>
 </html>

@@ -1,14 +1,21 @@
-/* Bondi · vistas, bottom sheet, mapa, búsqueda y viaje */
+/* Bondi · vistas, panel de contenido, mapa, búsqueda y viaje */
 'use strict';
 
-/* =========================== BOTTOM SHEET =========================== */
+/* =========================== PANEL DE CONTENIDO =========================== */
 var viewStack = ['v-home'];
 function setSheet(state) {
-  if (state) document.body.dataset.sheet = state;
-  else document.body.removeAttribute('data-sheet');
+  var p = $('#panel');
+  if (state) {
+    p.classList.add('open');
+    document.body.dataset.sheet = state === 'half' ? 'half' : 'full';
+  } else {
+    p.classList.remove('open');
+    document.body.removeAttribute('data-sheet');
+  }
 }
 function openView(id, opt) {
   closeExit();
+  if (id === 'v-home') { backToMap(); return; }
   var cur = viewStack[viewStack.length - 1];
   if (cur === id) { renderFor(id); syncHandle(); return; }
   if (viewStack.indexOf(id) >= 0) viewStack = viewStack.slice(0, viewStack.indexOf(id) + 1);
@@ -16,60 +23,34 @@ function openView(id, opt) {
   $$('.view').forEach(function (v) { v.classList.toggle('hidden', v.id !== id); });
   $('#views').scrollTop = 0;
   renderFor(id);
-  if (!opt || !opt.keepSheet) setSheet(id === 'v-home' ? null : 'full');
+  setSheet('full');
+  syncHandle();
+}
+function backToMap() {
+  viewStack = ['v-home'];
+  $$('.view').forEach(function (v) { v.classList.add('hidden'); });
+  setSheet(null);
   syncHandle();
 }
 function backView() {
   if (viewStack.length <= 1) { setSheet(null); return; }
   viewStack.pop();
   var id = viewStack[viewStack.length - 1];
+  if (id === 'v-home') { backToMap(); return; }
   $$('.view').forEach(function (v) { v.classList.toggle('hidden', v.id !== id); });
   renderFor(id);
-  setSheet(id === 'v-home' ? null : 'full');
+  setSheet('full');
   syncHandle();
 }
 function renderFor(id) {
-  if (id === 'v-home') renderHome();
-  else if (id === 'v-lines') renderLinesList();
+  if (id === 'v-lines') renderLinesList();
   else if (id === 'v-nearby') renderNearby();
   else if (id === 'v-fav') renderFav();
   else if (id === 'v-search') initSearch();
 }
 function syncHandle() {
-  var h = $('#handle');
-  var back = $('#shBack');
-  if (viewStack.length > 1) {
-    if (!back) {
-      back = document.createElement('button');
-      back.id = 'shBack'; back.type = 'button';
-      back.className = 'sh-back';
-      back.innerHTML = icoSvg('back');
-      back.addEventListener('click', function (e) { e.stopPropagation(); backView(); });
-      h.insertBefore(back, h.firstChild);
-    }
-  } else if (back) back.remove();
-}
-function initSheet() {
-  var h = $('#handle'), dragging = false, startY = 0, startState = '';
-  function stateIdx(s) { return s === 'full' ? 2 : s === 'half' ? 1 : 0; }
-  h.addEventListener('pointerdown', function (e) {
-    if (e.target.closest('#shBack')) return;
-    dragging = true; startY = e.clientY;
-    startState = document.body.dataset.sheet || 'closed';
-    h.setPointerCapture(e.pointerId);
-  });
-  h.addEventListener('pointermove', function (e) {
-    if (!dragging) return;
-    var dy = e.clientY - startY;
-    if (dy < -46 && stateIdx(startState) < 2) { dragging = false; setSheet(stateIdx(startState) === 0 ? 'half' : 'full'); }
-    if (dy > 46 && stateIdx(startState) > 0) { dragging = false; setSheet(stateIdx(startState) === 2 ? 'half' : null); }
-  });
-  h.addEventListener('pointerup', function () {
-    if (!dragging) return;
-    dragging = false;
-    var cur = document.body.dataset.sheet;
-    setSheet(cur === 'full' ? null : cur === null ? 'half' : 'full');
-  });
+  var bar = $('#panelBar');
+  if (bar) bar.classList.toggle('hidden', viewStack.length <= 1);
 }
 
 /* =========================== POPUP =========================== */
@@ -82,16 +63,7 @@ function showPopup(latlng, html) {
 }
 function hidePopup() { if (curPopup) { map.closePopup(curPopup); curPopup = null; } }
 
-/* =========================== HOME =========================== */
-function lineCard(l) {
-  var r = l.r[0];
-  var fav = store.get('favLines', []).indexOf(l.i) >= 0;
-  return '<div class="lcard" data-line="' + l.i + '" style="--c:' + l.c + '">' +
-    '<span class="lc-star' + (fav ? ' on' : '') + '" data-fav="' + l.i + '">' + icoSvg('star') + '</span>' +
-    '<div class="lc-b"><i>' + l.n + '</i><em>' + l.e + '</em></div>' +
-    '<b>' + (r ? r.n : '') + '</b>' +
-    '<span>' + (r ? r.k.toFixed(1).replace('.', ',') + ' km · ' + r.p + ' paradas' : '') + '</span></div>';
-}
+/* =========================== FILAS / ARRIBOS =========================== */
 function arrivalRow(l, si, key, arr, dist) {
   var st = D.P[si];
   var cls = etaClass(arr.min);
@@ -117,18 +89,6 @@ function nearestArrivals(limit, maxM) {
   });
   out.sort(function (a, b) { return a.arr.min - b.arr.min; });
   return out.slice(0, limit || 5);
-}
-function renderHome() {
-  var favs = store.get('favLines', []);
-  $('#homeFavs').innerHTML = favs.length
-    ? favs.map(function (id) { var l = D.lineas.filter(function (x) { return x.i === id; })[0]; return l ? lineCard(l) : ''; }).join('')
-    : emptyHtml('star', 'Sin líneas favoritas', 'Tocá la estrella de una línea para tenerla a mano acá');
-  var arr = nearestArrivals(4);
-  $('#homeArrivals').innerHTML = arr.length
-    ? arr.map(function (a) { return arrivalRow(a.l, a.si, a.key, a.arr, a.d); }).join('')
-    : emptyHtml('bus', 'No hay arribos cerca', 'Acercate a una parada o ampliá la búsqueda');
-  $('#homeAlerts').innerHTML = ALERTS.slice(0, 3).map(alertRow).join('');
-  hydrate($('#v-home'));
 }
 function alertRow(a) {
   return '<div class="row" data-alert="' + a.id + '">' +
@@ -190,8 +150,8 @@ function addAlert(typeId, lat, lon) {
 /* =========================== LÍNEAS =========================== */
 var activeLine = null, activeKey = null, activeRoute = 0, etaSubs = [];
 function renderLineChips() {
-  $('#lineChips').innerHTML = D.lineas.map(function (l) {
-    return '<button class="lc' + (activeLine && activeLine.i === l.i ? ' on' : '') + '" type="button" data-line="' + l.i + '" style="background:' + l.c + '">' +
+  $('#lineChips').innerHTML = D.lineas.map(function (l, i) {
+    return '<button class="lc' + (activeLine && activeLine.i === l.i ? ' on' : '') + '" type="button" data-line="' + l.i + '" style="--i:' + Math.min(i, 16) + ';background:' + l.c + '">' +
       l.n + '<small>' + l.e + '</small></button>';
   }).join('');
 }
@@ -204,9 +164,9 @@ function renderLinesList() {
     return l.r.some(function (r) { return r.n.toLowerCase().indexOf(q) >= 0; });
   });
   $('#linesListTitle').textContent = q ? list.length + ' resultados' : 'Todas las líneas (' + list.length + ')';
-  $('#linesList').innerHTML = list.length ? list.map(function (l) {
+  $('#linesList').innerHTML = list.length ? list.map(function (l, i) {
     var r = l.r[0];
-    return '<div class="row" data-line="' + l.i + '">' +
+    return '<div class="row" data-line="' + l.i + '" style="--i:' + Math.min(i, 18) + '">' +
       '<div class="r-b" style="background:' + l.c + '">' + l.n + '</div>' +
       '<div class="r-t"><b>' + (r ? r.n : l.n) + '</b><span>' + l.r.length + ' recorrido' + (l.r.length > 1 ? 's' : '') + ' · cliente ' + l.e + '</span></div>' +
       '<span class="ico chev" data-ico="chevron"></span></div>';
@@ -664,7 +624,6 @@ function startTrip(o) {
   if (latlngs.length) map.fitBounds(L.latLngBounds(latlngs), { padding: [46, 46] });
   renderTrip();
   openView('v-trip');
-  setSheet('half');
   showEtaBar();
   push('Viaje iniciado', 'Llegás en ' + fmtMin(o.total) + ' · ' + minsToClock(new Date(), o.total));
 }
@@ -714,7 +673,6 @@ function endTrip() {
   clearRoute();
   layerFlags.clearLayers(); layerWalk.clearLayers();
   backView();
-  renderHome();
   toast('Viaje finalizado', 'Esperamos que llegues bien', 'check', 'var(--green)');
 }
 function push(title, text) {

@@ -1,7 +1,7 @@
 /* Bondi · núcleo: iconos, utilidades, índices, mapa y simulación */
 'use strict';
 
-var APP_VERSION = 'v177';
+var APP_VERSION = 'v178';
 var RELEASE = 'V4';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
@@ -260,7 +260,6 @@ function locateMe() {
   if (!navigator.geolocation) {
     toast('Sin geolocalización', 'Usamos el centro de Córdoba', 'locate', 'var(--amber)');
     setUserLocation(CBA[0], CBA[1]);
-    renderHome();
     return;
   }
   loader('Ubicándote…', true);
@@ -268,12 +267,12 @@ function locateMe() {
     loader('', false);
     var ok = setUserLocation(p.coords.latitude, p.coords.longitude);
     if (!ok) toast('Fuera de zona', 'Tu ubicación está fuera del área de Córdoba Capital', 'warn', 'var(--amber)');
-    renderHome(); renderNearby(); initSearch();
+    renderNearby(); initSearch();
   }, function () {
     loader('', false);
     toast('No pudimos ubicarte', 'Usamos el centro de la ciudad', 'locate', 'var(--amber)');
     setUserLocation(CBA[0], CBA[1]);
-    renderHome(); initSearch();
+    initSearch();
   }, { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 });
 }
 
