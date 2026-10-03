@@ -250,7 +250,8 @@ function toggleFav(id) {
   else { favs.push(id); toast('Guardado en favoritos', l ? 'Línea ' + l.n + ' siempre a mano' : '', 'star', 'var(--amber)'); }
   store.set('favLines', favs);
   if (activeLine && activeLine.i === id) $('#lhFav').classList.toggle('on', favs.indexOf(id) >= 0);
-  if (!$('#v-lines').classList.contains('hidden')) renderLinesList();
+  if (!$('#lineStrip').classList.contains('hidden')) renderLineStrip();
+  renderLineCard();
   if (!$('#v-fav').classList.contains('hidden')) renderFav();
 }
 function setAccount(name, mail, logged) {
@@ -316,7 +317,7 @@ function buildReportGrid() {
 /* =========================== EVENTOS =========================== */
 function wire() {
   document.addEventListener('click', function (e) {
-    var sel = ['[data-fav]', '[data-pop]', '[data-confirm]', '[data-dismiss]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-rep]', '[data-opt]', '[data-goto]', '[data-alert]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]', '[data-spot]', '[data-spotpick]'];
+    var sel = ['[data-fav]', '[data-pop]', '[data-confirm]', '[data-dismiss]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-rep]', '[data-opt]', '[data-goto]', '[data-alert]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]', '[data-spot]', '[data-spotpick]', '[data-strip]', '[data-dir]'];
     for (var i = 0; i < sel.length; i++) {
       var el = e.target.closest(sel[i]);
       if (!el) continue;
@@ -331,6 +332,7 @@ function wire() {
           hidePopup();
           pts.b = { n: D.P[si].n, la: D.P[si].la, lo: D.P[si].lo };
           $('#inpB').value = D.P[si].n;
+          setDestPin(pts.b);
           openView('v-search');
           doSearch();
           return;
@@ -340,7 +342,7 @@ function wire() {
           $('#inp' + kk.toUpperCase()).value = '';
           pts[kk] = null;
           el.classList.remove('on');
-          if (kk === 'b') { $('#searchResults').classList.add('hidden'); $('#searchListTitle').classList.remove('hidden'); $('#searchList').classList.remove('hidden'); $('#quickPlaces').classList.remove('hidden'); }
+          if (kk === 'b') { setDestPin(null); $('#searchResults').classList.add('hidden'); $('#searchListTitle').classList.remove('hidden'); $('#searchList').classList.remove('hidden'); $('#quickPlaces').classList.remove('hidden'); }
           return;
         }
         case 'place': return quickPlace(el.dataset.place);
@@ -349,6 +351,7 @@ function wire() {
           $('#inpB').value = parts[0];
           pts.b = { n: parts[0], la: parseFloat(parts[1]), lo: parseFloat(parts[2]) };
           $('[data-clear="b"]').classList.add('on');
+          setDestPin(pts.b);
           return;
         }
         case 'rep': {
@@ -364,6 +367,7 @@ function wire() {
           var g = el.dataset.goto.split('|');
           pts.b = { n: g[0], la: parseFloat(g[1]), lo: parseFloat(g[2]) };
           $('#inpB').value = g[0];
+          setDestPin(pts.b);
           openView('v-search');
           doSearch();
           return;
@@ -386,6 +390,8 @@ function wire() {
         }
         case 'seg': activeRoute = parseInt(el.dataset.seg, 10); renderLineDetail(); return;
         case 'close-modal': closeModal(el.dataset.closeModal); return;
+        case 'strip': return openDirModal(el.dataset.strip);
+        case 'dir': return chooseRoute(parseInt(el.dataset.dir, 10));
       }
     }
   });
@@ -395,7 +401,45 @@ function wire() {
   $('#btnLocate').addEventListener('click', locateMe);
   $('#btnFav').addEventListener('click', function () { openView('v-fav'); });
   $('#reportFab').addEventListener('click', function () { openSheet('reportSheet'); });
-  $('#linesFab').addEventListener('click', function () { openView('v-lines'); });
+  $('#linesFab').addEventListener('click', function () { toggleStrip(); });
+  $('#stripClose').addEventListener('click', function () { toggleStrip(false); });
+  $('#dirCancel').addEventListener('click', function () { closeModal('dirModal'); });
+  $('#lcClose').addEventListener('click', closeLineCard);
+  $('#lcStops').addEventListener('click', function () {
+    if (!activeLine) return;
+    openView('v-line');
+    renderLineDetail();
+  });
+  $('#lcSched').addEventListener('click', function () { if (activeKey) openSchedFor(activeKey); });
+  $('#lcFav').addEventListener('click', function () { if (activeLine) toggleFav(activeLine.i); });
+  $('#lcWatch').addEventListener('click', function () {
+    if (!activeKey) return;
+    var si = nearestStopOnRoute(activeKey);
+    if (si == null) { toast('Sin paradas', 'No encontramos paradas en este recorrido', 'warn', 'var(--amber)'); return; }
+    if (watch && watch.key === activeKey) stopWatch();
+    else startWatch(activeKey, si);
+    syncWatchUI();
+  });
+  $('#btnWatchStop').addEventListener('click', function () {
+    var routes = (stopRoutes[currentStop] || []).slice();
+    if (!routes.length) { toast('Sin líneas', 'Esta parada no tiene recorridos cargados', 'warn', 'var(--amber)'); return; }
+    routes.sort(function (a, b) {
+      var aa = nextArrival(a.key, currentStop), bb = nextArrival(b.key, currentStop);
+      return (aa ? aa.min : 999) - (bb ? bb.min : 999);
+    });
+    if (watch && watch.si === currentStop) { stopWatch(); return; }
+    startWatch(routes[0].key, currentStop);
+    syncWatchUI();
+  });
+  $('#btnPickMap').addEventListener('click', function () {
+    backToMap();
+    setPickMode(true);
+    toast('Tocá el mapa', 'Mantené apretado o tocá para fijar tu destino', 'pin', 'var(--red)');
+  });
+  $('#pickCancel').addEventListener('click', function () { setPickMode(false); });
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('#watchClose')) stopWatch();
+  });
   $('#panelBack').addEventListener('click', function () { backView(); });
   $('#spotInput').addEventListener('input', function () { spotSel = null; renderSpotList(this.value); });
   $('#spotSave').addEventListener('click', saveSpot);
@@ -411,23 +455,51 @@ function wire() {
     var a = $('#inpA').value, b = $('#inpB').value;
     $('#inpA').value = b; $('#inpB').value = a;
     var pa = pts.a; pts.a = pts.b; pts.b = pa;
+    setDestPin(pts.b);
   });
-  $('#inpLineFilter').addEventListener('input', renderLinesList);
+  var geoT = null, lastGeoQ = '';
   $('#inpB').addEventListener('input', function () {
     $('[data-clear="b"]').classList.toggle('on', !!this.value);
+    pts.b = null;
+    setDestPin(null);
     var q = this.value.toLowerCase().trim();
+    clearTimeout(geoT);
     if (q.length < 2) { $('#searchResults').classList.add('hidden'); $('#searchListTitle').classList.remove('hidden'); $('#searchList').classList.remove('hidden'); $('#quickPlaces').classList.remove('hidden'); return; }
     var res = localSearch(q);
     $('#searchListTitle').classList.add('hidden');
     $('#searchList').classList.remove('hidden');
     $('#quickPlaces').classList.add('hidden');
     $('#searchList').innerHTML = res.map(function (p) { return searchRow(p, p.n, 'pin'); }).join('') ||
-      '<div class="empty"><b>Sin coincidencias</b><span>Probá con otra palabra o presioná “Buscar líneas”</span></div>';
+      '<div class="empty"><b>Sin coincidencias</b><span>Seguí escribiendo: buscamos direcciones en el mapa</span></div>';
+    if (q.length < 3 || res.length) return;
+    geoT = setTimeout(function () {
+      var val = ($('#inpB').value || '').toLowerCase().trim();
+      if (val !== q || val === lastGeoQ) return;
+      lastGeoQ = val;
+      geocode(val).then(function (g) {
+        var now = ($('#inpB').value || '').toLowerCase().trim();
+        if (now !== val || !g.length) return;
+        var local = localSearch(val).map(function (x) { return x.n; });
+        var extra = g.filter(function (p) { return local.indexOf(p.n) < 0; });
+        if (!extra.length) return;
+        var box = $('#searchList');
+        var html = extra.map(function (p) { return searchRow(p, p.n, 'pin'); }).join('');
+        if (/Sin coincidencias/.test(box.innerHTML)) box.innerHTML = html;
+        else box.insertAdjacentHTML('beforeend', '<div class="sec-h geo-h"><h4>Direcciones en Córdoba</h4></div>' + html);
+        hydrate(box);
+      });
+    }, 430);
   });
   $('#inpA').addEventListener('input', function () { $('[data-clear="a"]').classList.toggle('on', !!this.value); });
 
   $('#lhFav').addEventListener('click', function () { if (activeLine) toggleFav(activeLine.i); });
-  $('#btnCenterLine').addEventListener('click', function () { if (activeKey) drawRoute(activeKey); });
+  $('#btnCenterLine').addEventListener('click', function () {
+    if (!activeKey) return;
+    drawRoute(activeKey);
+    setSheet(null);
+    syncHandle();
+    toast('Recorrido en el mapa', 'Tocá una parada para ver los tiempos', 'map', 'var(--blue-700)');
+  });
   $('#btnShareLine').addEventListener('click', function () {
     var txt = 'Línea ' + activeLine.n + ' · ' + activeLine.r[activeRoute].n;
     if (navigator.share) navigator.share({ title: 'Bondi', text: txt }).catch(function () {});
@@ -480,10 +552,15 @@ function wire() {
 var exiting = false;
 function handleBack() {
   if (!$('#loginModal').classList.contains('hidden')) { closeModal('loginModal'); return true; }
+  if (!$('#dirModal').classList.contains('hidden')) { closeModal('dirModal'); return true; }
+  if (!$('#spotModal').classList.contains('hidden')) { closeModal('spotModal'); return true; }
   if (!$('#reportSheet').classList.contains('hidden')) { closeSheet('reportSheet'); return true; }
   if (!$('#menuSheet').classList.contains('hidden')) { closeSheet('menuSheet'); return true; }
   if (!$('#page').classList.contains('hidden') && pageOpen) { closePage(); return true; }
   if (viewStack.length > 1) { backView(); return true; }
+  if (pickMode) { setPickMode(false); return true; }
+  if (!$('#lineStrip').classList.contains('hidden')) { toggleStrip(false); return true; }
+  if (!$('#lineCard').classList.contains('hidden')) { closeLineCard(); return true; }
   if (curPopup) { hidePopup(); return true; }
   if (document.body.dataset.sheet) { setSheet(null); return true; }
   if (!$('#etaBar').classList.contains('hidden')) { endTrip(); return true; }
@@ -525,7 +602,7 @@ function removeAlert(id) {
 }
 function dataOpen(key) {
   if (key === 'search') { closeSheet('menuSheet'); openView('v-search'); return; }
-  if (key === 'lines') { closeSheet('menuSheet'); openView('v-lines'); return; }
+  if (key === 'lines') { closeSheet('menuSheet'); backToMap(); toggleStrip(true); return; }
   if (key === 'nearby') { closeSheet('menuSheet'); openView('v-nearby'); return; }
   if (key === 'fav') { closeSheet('menuSheet'); openView('v-fav'); return; }
   if (key === 'report') { openSheet('reportSheet'); return; }
@@ -540,13 +617,14 @@ function dataNav(key) {
 }
 function quickPlace(k) {
   var saved = store.get('place_' + k, null);
-  if (saved) { $('#inpB').value = saved.n; pts.b = saved; $('[data-clear="b"]').classList.add('on'); return; }
+  if (saved) { $('#inpB').value = saved.n; pts.b = saved; $('[data-clear="b"]').classList.add('on'); setDestPin(pts.b); return; }
   var names = { terminal: 'Terminal de Ómnibus', univ: 'Universidad Nacional (UNC)', obs: 'Observatorio Astronómico' };
   var p = PLACES.filter(function (x) { return x.n === names[k]; })[0];
   if (p) {
     $('#inpB').value = p.n;
     pts.b = p;
     $('[data-clear="b"]').classList.add('on');
+    setDestPin(pts.b);
     if (k === 'terminal') store.set('place_terminal', p);
   } else toast('Sin dirección guardada', 'Buscá un destino y guardalo', 'pin', 'var(--amber)');
 }
@@ -570,8 +648,10 @@ function boot() {
   renderAlerts();
   setUserLocation(CBA[0], CBA[1]);
   startSim();
-  renderLineChips();
+  renderLineStrip();
   renderSearchList();
+  initMapPick();
+  initNotify();
   setAccount(store.get('logged') ? 'Invitado' : 'Invitado', store.get('logged') ? 'sincronización en este dispositivo' : 'Iniciá sesión para sincronizar', !!store.get('logged'));
   if (store.get('dark')) {
     document.body.classList.add('dark');

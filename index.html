@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="style.css?v=178">
+<link rel="stylesheet" href="style.css?v=179">
 </head>
 <body>
 
@@ -47,6 +47,15 @@
 
   <!-- banner ETA / navegación -->
   <div id="etaBar" class="hidden"></div>
+  <!-- banner de avisos de llegada (estilo Didi/Uber) -->
+  <div id="watchBar" class="hidden" data-state="wait"></div>
+
+  <!-- aviso: modo elegir punto en el mapa -->
+  <div id="pickHint" class="hidden">
+    <span class="ico" data-ico="pin"></span>
+    <b>Tocá el mapa para fijar tu destino</b>
+    <button id="pickCancel" type="button">Cancelar</button>
+  </div>
 
   <!-- controles flotantes del mapa -->
   <div id="mapCtl">
@@ -58,6 +67,33 @@
   <!-- reportar + líneas -->
   <button id="reportFab" type="button" title="Reportar"><span class="ico" data-ico="plus"></span></button>
   <button id="linesFab" type="button" title="Líneas"><span class="ico" data-ico="bus"></span></button>
+
+  <!-- tira flotante de líneas (circulitos desplazables) -->
+  <div id="lineStrip" class="hidden">
+    <div class="strip-top"><b>Elegí tu línea</b><span>Deslizá para ver todas</span>
+      <button id="stripClose" type="button" title="Cerrar"><span class="ico" data-ico="close"></span></button>
+    </div>
+    <div class="strip-scroll" id="stripScroll"></div>
+  </div>
+
+  <!-- tarjeta chica del recorrido elegido -->
+  <div id="lineCard" class="hidden">
+    <div class="lcard-top">
+      <span class="lcard-badge" id="lcBadge">A</span>
+      <div class="lcard-txt"><b id="lcName">Línea A</b><span id="lcDir">Recorrido</span></div>
+      <button class="star-btn" id="lcFav" type="button" title="Favorito"><span class="ico" data-ico="star"></span></button>
+      <button class="lcard-x" id="lcClose" type="button" title="Cerrar"><span class="ico" data-ico="close"></span></button>
+    </div>
+    <div class="lcard-eta">
+      <span class="eta-pill" id="lcEtaPill">—</span>
+      <span id="lcEtaTxt">Calculando tu parada más cercana…</span>
+    </div>
+    <div class="lcard-acts">
+      <button class="btn ghost" id="lcStops" type="button"><span class="ico" data-ico="stop"></span>Paradas</button>
+      <button class="btn ghost" id="lcSched" type="button"><span class="ico" data-ico="clock"></span>Horarios</button>
+      <button class="btn primary" id="lcWatch" type="button"><span class="ico" data-ico="bell"></span>Avisarme</button>
+    </div>
+  </div>
 
   <!-- panel de contenido a pantalla completa -->
   <div id="panel">
@@ -94,19 +130,9 @@
         <div class="list" id="searchList"></div>
         <div id="searchResults" class="results hidden"></div>
         <div class="search-foot">
+          <button id="btnPickMap" class="btn soft wide" type="button"><span class="ico" data-ico="pin"></span>Elegir un punto en el mapa</button>
           <button id="btnDoSearch" class="btn primary big" type="button"><span class="ico" data-ico="search"></span>Buscar líneas</button>
         </div>
-      </div>
-
-      <!-- ---------- LÍNEAS ---------- -->
-      <div class="view hidden" id="v-lines">
-        <div class="view-head">
-          <div class="vh-title"><span class="ico" data-ico="bus"></span><h3>Líneas</h3></div>
-          <input id="inpLineFilter" class="field" type="text" placeholder="Buscar línea o destino…" autocomplete="off">
-        </div>
-        <div class="line-chips" id="lineChips"></div>
-        <div class="sec-h"><h4 id="linesListTitle">Elige una línea</h4></div>
-        <div class="list" id="linesList"></div>
       </div>
 
       <!-- ---------- DETALLE DE LÍNEA ---------- -->
@@ -139,7 +165,8 @@
         <div class="list" id="stopArrivals"></div>
         <div class="note">*Tiempo estimado según diagrama de operación. Puede variar por tránsito.</div>
         <div class="line-actions">
-          <button class="btn primary" id="btnStopSched" type="button"><span class="ico" data-ico="clock"></span>Horarios de esta parada</button>
+          <button class="btn primary" id="btnWatchStop" type="button"><span class="ico" data-ico="bell"></span>Avisarme cuando llegue</button>
+          <button class="btn ghost" id="btnStopSched" type="button"><span class="ico" data-ico="clock"></span>Horarios de esta parada</button>
         </div>
       </div>
 
@@ -266,6 +293,17 @@
   </div>
 </div>
 
+<!-- ===================== ELEGIR DIRECCIÓN (IDA / VUELTA) ===================== -->
+<div class="modal-wrap hidden" id="dirModal">
+  <div class="modal">
+    <span class="dir-badge" id="dirBadge">A</span>
+    <h3 id="dirTitle">¿Para dónde va?</h3>
+    <p class="muted" id="dirSub">Elegí el sentido del recorrido</p>
+    <div class="dir-list" id="dirList"></div>
+    <button class="btn ghost wide" id="dirCancel" type="button">Cancelar</button>
+  </div>
+</div>
+
 <!-- ===================== CONFIRMAR SALIDA ===================== -->
 <div class="modal-wrap hidden" id="exitModal">
   <div class="modal">
@@ -292,9 +330,9 @@
 <div id="loader" class="hidden"><div class="spin"></div><span id="loaderTxt">Buscando líneas…</span></div>
 
 <script src="vendor/leaflet.js"></script>
-<script src="data.js?v=178"></script>
-<script src="core.js?v=178"></script>
-<script src="views.js?v=178"></script>
-<script src="main.js?v=178"></script>
+<script src="data.js?v=179"></script>
+<script src="core.js?v=179"></script>
+<script src="views.js?v=179"></script>
+<script src="main.js?v=179"></script>
 </body>
 </html>

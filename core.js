@@ -1,7 +1,7 @@
 /* Bondi · núcleo: iconos, utilidades, índices, mapa y simulación */
 'use strict';
 
-var APP_VERSION = 'v178';
+var APP_VERSION = 'v179';
 var RELEASE = 'V4';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
@@ -205,7 +205,7 @@ function bearing(a, b) {
 }
 
 /* =========================== MAPA =========================== */
-var map, userMarker, layerRoute, layerStops, layerBuses, layerFlags, layerWalk, layerAlerts, tileLayer;
+var map, userMarker, layerRoute, layerStops, layerBuses, layerFlags, layerWalk, layerAlerts, layerDest, tileLayer;
 var tileMode = 'light';
 var TILE = {
   light: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles &copy; Esri &middot; OpenStreetMap contributors', sub: '' },
@@ -232,6 +232,7 @@ function initMap() {
   layerStops = L.layerGroup().addTo(map);
   layerWalk = L.layerGroup().addTo(map);
   layerFlags = L.layerGroup().addTo(map);
+  layerDest = L.layerGroup().addTo(map);
   layerAlerts = L.layerGroup().addTo(map);
   layerBuses = L.layerGroup().addTo(map);
   L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
@@ -278,6 +279,7 @@ function locateMe() {
 
 /* =========================== SIMULACIÓN DE BONDIS =========================== */
 var BUS_MARKERS = false; /* los bondis no se dibujan en el mapa: solo se ve tu punto (siguen simulándose para los arribos) */
+var busRoute = null; /* salvo que estés viendo un recorrido: ahí sí se dibujan los bondis de esa línea */
 var buses = [], simRoutes = [];
 function pickSimRoutes() {
   var used = {}, list = [];
@@ -305,10 +307,19 @@ function spawnBus(key, dist) {
     }),
     zIndexOffset: 500
   });
-  if (BUS_MARKERS) el.addTo(layerBuses);
+  if (BUS_MARKERS || (busRoute && key === busRoute)) el.addTo(layerBuses);
   var b = { key: key, dist: dist % len, speed: speed, len: len, el: el, coche: 1000 + (hash(key + dist) % 899), dem: '' };
   buses.push(b);
   return b;
+}
+/* muestra/oculta los bondis según el recorrido que estás viendo */
+function syncBusLayer() {
+  buses.forEach(function (b) {
+    var show = !!BUS_MARKERS || (busRoute && b.key === busRoute);
+    var on = layerBuses.hasLayer(b.el);
+    if (show && !on) b.el.addTo(layerBuses);
+    else if (!show && on) layerBuses.removeLayer(b.el);
+  });
 }
 function startSim() {
   simRoutes = pickSimRoutes();

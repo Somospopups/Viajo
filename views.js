@@ -43,8 +43,7 @@ function backView() {
   syncHandle();
 }
 function renderFor(id) {
-  if (id === 'v-lines') renderLinesList();
-  else if (id === 'v-nearby') renderNearby();
+  if (id === 'v-nearby') renderNearby();
   else if (id === 'v-fav') renderFav();
   else if (id === 'v-search') initSearch();
 }
@@ -147,31 +146,96 @@ function addAlert(typeId, lat, lon) {
   return a;
 }
 
-/* =========================== LÍNEAS =========================== */
+/* =========================== LÍNEAS: TIRA FLOTANTE + RECORRIDO =========================== */
 var activeLine = null, activeKey = null, activeRoute = 0, etaSubs = [];
-function renderLineChips() {
-  $('#lineChips').innerHTML = D.lineas.map(function (l, i) {
-    return '<button class="lc' + (activeLine && activeLine.i === l.i ? ' on' : '') + '" type="button" data-line="' + l.i + '" style="--i:' + Math.min(i, 16) + ';background:' + l.c + '">' +
+function renderLineStrip() {
+  var box = $('#stripScroll');
+  if (!box) return;
+  box.innerHTML = D.lineas.map(function (l, i) {
+    return '<button class="lc' + (activeLine && activeLine.i === l.i ? ' on' : '') + '" type="button" data-strip="' + l.i + '" style="--i:' + Math.min(i, 24) + ';background:' + l.c + '">' +
       l.n + '<small>' + l.e + '</small></button>';
   }).join('');
 }
-function renderLinesList() {
-  renderLineChips();
-  var q = ($('#inpLineFilter').value || '').toLowerCase().trim();
-  var list = D.lineas.filter(function (l) {
-    if (!q) return true;
-    if (l.n.toLowerCase().indexOf(q) >= 0 || String(l.i).indexOf(q) >= 0) return true;
-    return l.r.some(function (r) { return r.n.toLowerCase().indexOf(q) >= 0; });
+function toggleStrip(on) {
+  var s = $('#lineStrip');
+  if (!s) return;
+  var open = on == null ? s.classList.contains('hidden') : !!on;
+  if (open) { renderLineStrip(); s.classList.remove('hidden'); }
+  else s.classList.add('hidden');
+}
+function openDirModal(lineId) {
+  var l = D.lineas.filter(function (x) { return String(x.i) === String(lineId); })[0];
+  if (!l) return;
+  activeLine = l;
+  $('#dirBadge').textContent = l.n;
+  $('#dirBadge').style.background = l.c;
+  $('#dirTitle').textContent = 'Línea ' + l.n;
+  $('#dirSub').textContent = l.r.length > 1 ? 'Elegí el sentido del recorrido' : (l.r[0] ? l.r[0].n : '');
+  $('#dirList').innerHTML = l.r.map(function (r, i) {
+    return '<button type="button" class="dir-opt" data-dir="' + i + '" style="--c:' + l.c + '">' +
+      '<span class="do-ico">' + icoSvg(r.s === 'V' ? 'back' : 'arrow') + '</span>' +
+      '<div class="do-t"><b>' + (r.s === 'V' ? 'Vuelta' : 'Ida') + ' · ' + r.n + '</b>' +
+      '<span>' + r.k.toFixed(1).replace('.', ',') + ' km · ' + r.p + ' paradas</span></div>' +
+      '<span class="ico chev" data-ico="chevron"></span></button>';
+  }).join('');
+  hydrate($('#dirModal'));
+  openModal('dirModal');
+}
+function chooseRoute(idx) {
+  var l = activeLine;
+  if (!l) return;
+  closeModal('dirModal');
+  toggleStrip(false);
+  activeRoute = idx || 0;
+  var r = l.r[activeRoute] || l.r[0];
+  activeKey = r.t;
+  showLineCard();
+  drawRoute(r.t);
+}
+function showLineCard() {
+  $('#lineCard').classList.remove('hidden');
+  renderLineCard();
+}
+function closeLineCard() {
+  $('#lineCard').classList.add('hidden');
+  clearRoute();
+}
+function renderLineCard() {
+  var l = activeLine;
+  if (!l || $('#lineCard').classList.contains('hidden')) return;
+  var r = l.r[activeRoute] || l.r[0];
+  $('#lcBadge').textContent = l.n;
+  $('#lcBadge').style.background = l.c;
+  $('#lcName').textContent = 'Línea ' + l.n;
+  $('#lcDir').textContent = (r.s === 'V' ? 'Vuelta' : 'Ida') + ' · ' + r.n;
+  $('#lcFav').classList.toggle('on', store.get('favLines', []).indexOf(l.i) >= 0);
+  refreshCardEta();
+}
+function refreshCardEta() {
+  var card = $('#lineCard');
+  if (!card || card.classList.contains('hidden') || !activeLine) return;
+  var r = activeLine.r[activeRoute] || activeLine.r[0];
+  var si = nearestStopOnRoute(r.t);
+  var s = si != null ? D.P[si] : null;
+  var a = si != null ? nextArrival(r.t, si) : null;
+  var pill = $('#lcEtaPill');
+  pill.className = 'eta-pill ' + (a ? etaClass(a.min) : 'eta-r');
+  pill.textContent = a ? fmtMin(a.min) : '—';
+  var txt = $('#lcEtaTxt');
+  if (!s) { txt.textContent = 'Sin paradas en este recorrido'; return; }
+  var pos = myPos(), d = distM([pos.lat, pos.lng], [s.la, s.lo]);
+  txt.textContent = 'Tu parada más cercana: ' + s.n + ' · ' + fmtKm(d) + ' · caminás ' + fmtMin(walkMinTo(s.la, s.lo)) +
+    (a ? ' · llega en ' + fmtMin(a.min) : '');
+}
+function nearestStopOnRoute(key) {
+  var stops = D.R[key] || [], pos = myPos(), best = null;
+  stops.forEach(function (si) {
+    var s = D.P[si];
+    if (!s) return;
+    var d = distM([pos.lat, pos.lng], [s.la, s.lo]);
+    if (!best || d < best.d) best = { si: si, d: d };
   });
-  $('#linesListTitle').textContent = q ? list.length + ' resultados' : 'Todas las líneas (' + list.length + ')';
-  $('#linesList').innerHTML = list.length ? list.map(function (l, i) {
-    var r = l.r[0];
-    return '<div class="row" data-line="' + l.i + '" style="--i:' + Math.min(i, 18) + '">' +
-      '<div class="r-b" style="background:' + l.c + '">' + l.n + '</div>' +
-      '<div class="r-t"><b>' + (r ? r.n : l.n) + '</b><span>' + l.r.length + ' recorrido' + (l.r.length > 1 ? 's' : '') + ' · cliente ' + l.e + '</span></div>' +
-      '<span class="ico chev" data-ico="chevron"></span></div>';
-  }).join('') : emptyHtml('search', 'Sin resultados', 'Probá con otro número o destino');
-  hydrate($('#v-lines'));
+  return best ? best.si : null;
 }
 function openLine(id) {
   var l = D.lineas.filter(function (x) { return x.i === id; })[0];
@@ -253,6 +317,10 @@ function drawRoute(key) {
   clearRoute();
   var t = D.traza[key];
   if (!t) return;
+  busRoute = key;
+  activeKey = key;
+  ensureBuses(key);
+  syncBusLayer();
   var meta = routeMeta[key], col = meta ? meta.l.c : '#33CCFF';
   var latlngs = t.map(function (p) { return [p[1], p[0]]; });
   L.polyline(latlngs, { color: '#fff', weight: 9, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }).addTo(layerRoute);
@@ -282,7 +350,7 @@ function drawStopsFor(key) {
 }
 function clearRoute() {
   layerRoute.clearLayers(); layerStops.clearLayers(); layerWalk.clearLayers(); layerFlags.clearLayers();
-  activeKey = null; etaSubs = [];
+  activeKey = null; etaSubs = []; busRoute = null; syncBusLayer();
 }
 function openStopPopup(si, latlng, key) {
   var s = D.P[si];
@@ -297,7 +365,7 @@ function openStopPopup(si, latlng, key) {
   }).join('');
   showPopup(latlng || [s.la, s.lo],
     '<div class="wz-pop"><div class="p-top"><span class="p-badge" style="background:' + (key && routeMeta[key] ? routeMeta[key].l.c : '#0FA6D8') + '">' + icoSvg('stop') + '</span>' +
-    '<div class="p-t"><b>' + s.n + '</b><span>Código ' + s.k + '</span></div>' +
+    '<div class="p-t"><b>' + s.n + '</b><span>Código ' + s.k + ' · ' + fmtMin(walkMinTo(s.la, s.lo)) + ' caminando</span></div>' +
     '<button class="p-close" data-pop="1">' + icoSvg('close') + '</button></div>' +
     '<div class="p-arr">' + rows + '</div>' +
     '<div class="p-foot"><button data-stop="' + si + '">Ver parada</button><button class="ghost" data-navto="' + si + '">Ir allá</button></div></div>');
@@ -312,7 +380,8 @@ function openStopView(si) {
   openView('v-stop');
   $('#stopName').textContent = s.n;
   var d = distM([s.la, s.lo], [myPos().lat, myPos().lng]);
-  $('#stopMeta').textContent = 'Código ' + s.k + ' · ' + fmtKm(d) + ' de vos';
+  $('#stopMeta').textContent = 'Código ' + s.k + ' · ' + fmtKm(d) + ' de vos · caminás ' + fmtMin(walkMinTo(s.la, s.lo));
+  syncWatchUI();
   renderStopArrivals();
 }
 function renderStopArrivals() {
@@ -403,6 +472,9 @@ var PLACES = [
 var pts = { a: null, b: null };
 function initSearch() {
   if (!pts.a) $('#inpA').value = 'Mi ubicación';
+  $('#searchResults').classList.add('hidden');
+  $('#searchListTitle').classList.remove('hidden');
+  $('#quickPlaces').classList.remove('hidden');
   renderSearchList();
 }
 function renderSearchList() {
@@ -469,7 +541,7 @@ function renderResults(list) {
 var planOptions = [];
 function doSearch() {
   var qB = ($('#inpB').value || '').trim();
-  if (!qB) {
+  if (!qB && !pts.b) {
     $('#inpB').focus();
     toast('Falta el destino', 'Decinos a dónde querés ir', 'pin', 'var(--amber)');
     return;
@@ -477,14 +549,16 @@ function doSearch() {
   loader('Calculando recorridos…', true);
   var p = myPos();
   var pA = pts.a || { n: 'Mi ubicación', la: p.lat, lo: p.lng };
-  resolveQuery(qB).then(function (pB) {
+  var pinned = pts.b && (!qB || qB === pts.b.n);
+  (pinned ? Promise.resolve(pts.b) : resolveQuery(qB)).then(function (pB) {
     if (!pB) {
       loader('', false);
-      toast('Destino no encontrado', 'Probá con otro nombre', 'warn', 'var(--red)');
+      toast('Destino no encontrado', 'Probá con otro nombre o tocá el mapa', 'warn', 'var(--red)');
       return;
     }
     pts.b = pB;
     remember(pB);
+    setDestPin(pB);
     setTimeout(function () {
       planOptions = planTrip(pA.la, pA.lo, pB.la, pB.lo);
       loader('', false);
@@ -595,6 +669,10 @@ var tripOpt = null;
 function startTrip(o) {
   tripOpt = o;
   document.body.classList.add('navigating');
+  busRoute = null; syncBusLayer();
+  $('#lineCard').classList.add('hidden');
+  toggleStrip(false);
+  setDestPin(null);
   layerRoute.clearLayers(); layerStops.clearLayers();
   layerWalk.clearLayers(); layerFlags.clearLayers();
   var latlngs = [];
@@ -672,7 +750,9 @@ function endTrip() {
   $('#etaBar').classList.add('hidden');
   clearRoute();
   layerFlags.clearLayers(); layerWalk.clearLayers();
+  setDestPin(pts.b);
   backView();
+  tickWatch();
   toast('Viaje finalizado', 'Esperamos que llegues bien', 'check', 'var(--green)');
 }
 function push(title, text) {
@@ -681,4 +761,204 @@ function push(title, text) {
   $('#push').classList.remove('hidden');
   clearTimeout(push._t);
   push._t = setTimeout(function () { $('#push').classList.add('hidden'); }, 5200);
+}
+
+/* =========================== PUNTO EN EL MAPA / DIRECCIONES =========================== */
+var destPin = null, pickMode = false;
+function setDestPin(p) {
+  if (destPin) { layerDest.removeLayer(destPin); destPin = null; }
+  if (!p) return;
+  destPin = flagMarker([p.la, p.lo]).addTo(layerDest);
+}
+function setPickMode(on) {
+  pickMode = !!on;
+  var h = $('#pickHint');
+  if (h) h.classList.toggle('hidden', !pickMode);
+  var wb = $('#watchBar'); if (wb) wb.style.display = pickMode ? 'none' : '';
+  var eb = $('#etaBar'); if (eb) eb.style.display = pickMode ? 'none' : '';
+  if (map) map.getContainer().style.cursor = pickMode ? 'crosshair' : '';
+}
+function pickAt(latlng) {
+  setPickMode(false);
+  hidePopup();
+  pts.b = { n: 'Punto en el mapa', la: latlng.lat, lo: latlng.lng };
+  $('#inpB').value = pts.b.n;
+  $('[data-clear="b"]').classList.add('on');
+  setDestPin(pts.b);
+  map.flyTo(latlng, Math.max(map.getZoom(), 16), { duration: 0.5 });
+  reverseGeocode(latlng).then(function (n) {
+    if (!n || !pts.b || pts.b.n !== 'Punto en el mapa') return;
+    pts.b.n = n;
+    if ($('#inpB').value === 'Punto en el mapa') $('#inpB').value = n;
+    remember(pts.b);
+    setDestPin(pts.b);
+  });
+  openView('v-search');
+  toast('Punto fijado en el mapa', 'Tocá “Buscar líneas” para ver cómo llegar', 'pin', 'var(--red)');
+}
+function reverseGeocode(ll) {
+  var url = 'https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&addressdetails=1&lat=' + ll.lat + '&lon=' + ll.lng;
+  return fetch(url, { headers: { Accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j || !j.display_name) return '';
+      var a = j.address || {};
+      var street = a.road || a.pedestrian || a.street || a.neighbourhood || a.suburb || a.hamlet || '';
+      var num = a.house_number ? ' ' + a.house_number : '';
+      var name = street ? street + num : (j.display_name.split(',')[0] || '');
+      var city = a.city || a.town || a.village || '';
+      if (name && city) name += ', ' + city;
+      return (name || j.display_name).trim();
+    }).catch(function () { return ''; });
+}
+function initMapPick() {
+  map.on('click', function (e) { if (pickMode) pickAt(e.latlng); });
+  var c = map.getContainer(), timer = null, sx = 0, sy = 0, moved = false;
+  function clear() { if (timer) { clearTimeout(timer); timer = null; } }
+  map.on('movestart', clear);
+  c.addEventListener('pointerdown', function (e) {
+    if (e.button && e.button !== 0) return;
+    sx = e.clientX; sy = e.clientY; moved = false;
+    clear();
+    timer = setTimeout(function () {
+      timer = null;
+      if (moved || pickMode) return;
+      var r = c.getBoundingClientRect();
+      pickAt(map.containerPointToLatLng([sx - r.left, sy - r.top]));
+    }, 580);
+  });
+  c.addEventListener('pointermove', function (e) {
+    if (Math.abs(e.clientX - sx) > 9 || Math.abs(e.clientY - sy) > 9) { moved = true; clear(); }
+  }, { passive: true });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { c.addEventListener(ev, clear); });
+}
+
+/* =========================== AVISOS DE LLEGADA (SALÍ / LLEGA EN …) =========================== */
+var watch = null, swReg = null;
+function initNotify() {
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    try { navigator.serviceWorker.register('sw.js').then(function (r) { swReg = r; }).catch(function () {}); } catch (e) {}
+  }
+  setInterval(function () { tickWatch(); refreshCardEta(); }, 10000);
+}
+function walkMinTo(lat, lng) {
+  var p = myPos();
+  return (distM([p.lat, p.lng], [lat, lng]) * 1.28) / (4.6 / 3.6) / 60;
+}
+function askNotify(cb) {
+  var done = false;
+  function fin(m) { if (done) return; done = true; cb(m); }
+  try {
+    if (!('Notification' in window)) return fin('inapp');
+    if (Notification.permission === 'granted') return fin('sys');
+    if (Notification.permission === 'denied') return fin('inapp');
+    var r = Notification.requestPermission(function (p) { fin(p === 'granted' ? 'sys' : 'inapp'); });
+    if (r && r.then) r.then(function (p) { fin(p === 'granted' ? 'sys' : 'inapp'); }, function () { fin('inapp'); });
+  } catch (e) { fin('inapp'); }
+}
+function notify(title, body, tag) {
+  var ok = false;
+  try {
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      var opts = { body: body, tag: tag || 'bondi', icon: 'logo.svg', badge: 'logo.svg', renotify: false };
+      if (swReg) { swReg.showNotification(title, opts); ok = true; }
+      else { new Notification(title, opts); ok = true; }
+    }
+  } catch (e) { ok = false; }
+  if (!ok) push(title, body);
+}
+function startWatch(key, si) {
+  var l = lineByKey[key], s = D.P[si];
+  if (!l || !s) { toast('Sin datos', 'No se pudo activar el aviso', 'warn', 'var(--red)'); return; }
+  ensureBuses(key);
+  watch = { key: key, si: si, phase: -1 };
+  askNotify(function (mode) {
+    if (mode === 'sys') toast('Avisos activados', 'Te avisamos cuándo salir y cuándo llega', 'bell', 'var(--green)');
+    else toast('Avisos activados', 'Si tu navegador bloquea notificaciones, te avisamos dentro de la app', 'bell', 'var(--blue-700)');
+  });
+  syncWatchUI();
+  tickWatch();
+  push('Avisos activados', 'Línea ' + l.n + ' en ' + s.n + ' · te avisamos cuándo salir de donde estés');
+}
+function stopWatch() {
+  watch = null;
+  syncWatchUI();
+  $('#watchBar').classList.add('hidden');
+}
+function showWatchBar() {
+  var bar = $('#watchBar');
+  if (!bar.dataset.built) {
+    bar.innerHTML = '<span class="wb-ic">' + icoSvg('bell') + '</span>' +
+      '<div class="wb-t"><b id="wbTitle">Aviso</b><span id="wbSub"></span></div>' +
+      '<span class="eta-pill" id="wbEta">—</span>' +
+      '<button class="wb-x" id="watchClose" type="button">' + icoSvg('close') + '</button>';
+    bar.dataset.built = '1';
+  }
+  bar.classList.remove('hidden');
+}
+function tickWatch() {
+  var bar = $('#watchBar');
+  if (!watch || tripOpt || pickMode) { if (bar) bar.classList.add('hidden'); return; }
+  var s = D.P[watch.si], l = lineByKey[watch.key];
+  if (!s || !l) { stopWatch(); return; }
+  ensureBuses(watch.key);
+  var a = nextArrival(watch.key, watch.si);
+  var walk = walkMinTo(s.la, s.lo);
+  var eta = a ? a.min : null;
+  var leaveIn = eta != null ? eta - walk - 3 : null;
+  var phase = eta == null ? 0 : eta <= 0.75 ? 3 : eta <= 3 ? 2 : (leaveIn <= 0 ? 1 : 0);
+  var state = eta == null ? 'wait' : phase === 3 ? 'arr' : phase === 2 ? 'soon' : phase === 1 ? 'go' : 'wait';
+  var title, sub;
+  if (eta == null) {
+    title = 'Sin unidades en camino';
+    sub = 'Línea ' + l.n + ' · ' + s.n + ' · te avisamos cuando haya dato';
+  } else if (phase === 3) {
+    title = '¡Ya llegó tu bondi!';
+    sub = 'Línea ' + l.n + ' en ' + s.n + ' · subite';
+  } else if (phase === 2) {
+    title = 'Está por llegar';
+    sub = 'Línea ' + l.n + ' en ' + s.n + ' · llega en ' + fmtMin(eta);
+  } else if (phase === 1) {
+    title = 'Es hora de salir';
+    sub = 'Caminás ' + fmtMin(walk) + ' hasta ' + s.n + ' y llega en ' + fmtMin(eta);
+  } else {
+    title = 'Salí en ' + fmtMin(leaveIn);
+    sub = 'Línea ' + l.n + ' · ' + s.n + ' · caminás ' + fmtMin(walk) + ' · bondi en ' + fmtMin(eta);
+  }
+  showWatchBar();
+  bar.dataset.state = state;
+  $('#wbTitle').textContent = title;
+  $('#wbSub').textContent = sub;
+  var pill = $('#wbEta');
+  pill.className = 'eta-pill ' + (eta != null ? etaClass(eta) : 'eta-r');
+  pill.textContent = eta != null ? fmtMin(eta) : '—';
+  if (phase > watch.phase) {
+    if (phase === 1) notify('Es hora de salir', 'Caminás ' + fmtMin(walk) + ' hasta ' + s.n + '. Si salís ahora esperás 3 minutos o menos.', 'salir');
+    else if (phase === 2) notify('Tu bondi está por llegar', 'Línea ' + l.n + ' en ' + s.n + ' en ' + fmtMin(eta), 'llega');
+    else if (phase === 3) notify('¡Llegó tu bondi!', 'Línea ' + l.n + ' en ' + s.n + '. ¡Subite!', 'llego');
+    watch.phase = phase;
+  } else if (phase === 0) watch.phase = 0;
+}
+function syncWatchUI() {
+  var b = $('#btnWatchStop');
+  if (b) {
+    var active = !!watch && currentStop != null && watch.si === currentStop;
+    if (b.dataset.on !== (active ? '1' : '0')) {
+      b.dataset.on = active ? '1' : '0';
+      b.classList.toggle('on', active);
+      b.innerHTML = '<span class="ico" data-ico="bell"></span>' + (active ? 'Aviso activado' : 'Avisarme cuando llegue');
+      hydrate(b);
+    }
+  }
+  var c = $('#lcWatch');
+  if (c) {
+    var w = !!watch && !!activeKey && watch.key === activeKey;
+    if (c.dataset.on !== (w ? '1' : '0')) {
+      c.dataset.on = w ? '1' : '0';
+      c.classList.toggle('on', w);
+      c.innerHTML = '<span class="ico" data-ico="bell"></span>' + (w ? 'Avisando' : 'Avisarme');
+      hydrate(c);
+    }
+  }
+  if (!watch) $('#watchBar').classList.add('hidden');
 }
