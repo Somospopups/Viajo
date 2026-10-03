@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#33CCFF">
+<meta name="description" content="BondiWaze · Transporte público de Córdoba Capital con la identidad visual de Waze: líneas, paradas, próximos arribos y reportes de la comunidad.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BondiWaze · Transporte Público de Córdoba</title>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="style.css?v=172">
+</head>
+<body>
+
+<!-- ===================== SPLASH ===================== -->
+<div id="splash">
+  <div class="splash-in">
+    <div class="splash-logo" id="splashLogo"></div>
+    <h1>BondiWaze</h1>
+    <p>Transporte público · Córdoba Capital</p>
+    <div class="dots"><span></span><span></span><span></span></div>
+  </div>
+  <div class="splash-foot">Encontrá tu bondi en tiempo real</div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app" class="hidden">
+  <div id="map"></div>
+
+  <!-- barra superior estilo Waze -->
+  <header id="topbar">
+    <button id="searchPill" class="pill" type="button">
+      <span class="ico" data-ico="search"></span>
+      <span class="pill-txt">¿A dónde vas?</span>
+      <span class="pill-mic ico" data-ico="mic"></span>
+    </button>
+    <button id="btnProfile" class="round-btn" type="button" aria-label="Perfil y menú"></button>
+  </header>
+
+  <!-- banner ETA / navegación -->
+  <div id="etaBar" class="hidden"></div>
+
+  <!-- controles flotantes del mapa -->
+  <div id="mapCtl">
+    <button class="fab" id="btnLocate" type="button" title="Mi ubicación"><span class="ico" data-ico="locate"></span></button>
+    <button class="fab" id="btnTraffic" type="button" title="Tráfico"><span class="ico" data-ico="traffic"></span></button>
+    <button class="fab" id="btnAlerts" type="button" title="Alertas"><span class="ico" data-ico="bell"></span><span class="fab-dot"></span></button>
+  </div>
+
+  <!-- bottom sheet -->
+  <section id="sheet">
+    <div id="handle"><span></span></div>
+    <div id="views">
+
+      <!-- ---------- HOME ---------- -->
+      <div class="view" id="v-home">
+        <button class="mini-search" type="button" data-open="search">
+          <span class="ico" data-ico="search"></span><span>¿A dónde vas?</span>
+        </button>
+        <div class="chips" id="homeChips">
+          <button class="chip" type="button" data-open="lines"><span class="chip-ico blue" data-ico="bus"></span>Líneas</button>
+          <button class="chip" type="button" data-open="nearby"><span class="chip-ico blue" data-ico="locate"></span>Cerca mío</button>
+          <button class="chip" type="button" data-open="sched"><span class="chip-ico blue" data-ico="clock"></span>Horarios</button>
+          <button class="chip" type="button" data-open="sube"><span class="chip-ico blue" data-ico="card"></span>Recarga</button>
+          <button class="chip" type="button" data-open="bici"><span class="chip-ico blue" data-ico="bike"></span>BiciCba</button>
+        </div>
+
+        <div class="sec" id="secFavs">
+          <div class="sec-h"><h4>Tus líneas favoritas</h4><button type="button" class="link-btn" data-open="lines">Ver todas</button></div>
+          <div class="row-cards" id="homeFavs"></div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h"><h4>Próximos arribos cerca tuyo</h4></div>
+          <div class="list" id="homeArrivals"></div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h"><h4>Alertas de la comunidad</h4><button type="button" class="link-btn" id="btnAllAlerts">Ver mapa</button></div>
+          <div class="list" id="homeAlerts"></div>
+        </div>
+
+        <div class="promo" data-open="howto">
+          <div class="promo-ico" data-ico="info"></div>
+          <div><b>¿Cómo funciona BondiWaze?</b><span>Descubrí en 4 pasos cómo llegar más rápido</span></div>
+          <span class="ico chev" data-ico="chevron"></span>
+        </div>
+      </div>
+
+      <!-- ---------- BUSCAR (origen / destino) ---------- -->
+      <div class="view hidden" id="v-search">
+        <div class="ab-box">
+          <div class="ab-rows">
+            <div class="ab-row" data-k="a">
+              <span class="ab-dot a"></span>
+              <input id="inpA" type="text" autocomplete="off" placeholder="Tu ubicación" value="">
+              <button class="ab-clear" type="button" data-clear="a"><span class="ico" data-ico="close"></span></button>
+            </div>
+            <div class="ab-row" data-k="b">
+              <span class="ab-dot b"></span>
+              <input id="inpB" type="text" autocomplete="off" placeholder="¿A dónde vas?">
+              <button class="ab-clear" type="button" data-clear="b"><span class="ico" data-ico="close"></span></button>
+            </div>
+          </div>
+          <button id="btnSwap" class="ab-swap" type="button" title="Invertir"><span class="ico" data-ico="swap"></span></button>
+        </div>
+        <div class="quick-places" id="quickPlaces">
+          <button type="button" class="qp" data-place="casa"><span class="qp-ico" data-ico="home"></span>Casa</button>
+          <button type="button" class="qp" data-place="trabajo"><span class="qp-ico" data-ico="work"></span>Trabajo</button>
+          <button type="button" class="qp" data-place="terminal"><span class="qp-ico" data-ico="bus"></span>Terminal</button>
+          <button type="button" class="qp" data-place="univ"><span class="qp-ico" data-ico="school"></span>Universidad</button>
+          <button type="button" class="qp" data-place="obs"><span class="qp-ico" data-ico="star"></span>Observatorio</button>
+        </div>
+        <div class="sec-h" id="searchListTitle"><h4>Destinos recientes</h4></div>
+        <div class="list" id="searchList"></div>
+        <div id="searchResults" class="results hidden"></div>
+        <div class="search-foot">
+          <button id="btnDoSearch" class="btn primary big" type="button"><span class="ico" data-ico="search"></span>Buscar líneas</button>
+        </div>
+      </div>
+
+      <!-- ---------- LÍNEAS ---------- -->
+      <div class="view hidden" id="v-lines">
+        <div class="view-head">
+          <div class="vh-title"><span class="ico" data-ico="bus"></span><h3>Líneas</h3></div>
+          <input id="inpLineFilter" class="field" type="text" placeholder="Buscar línea o destino…" autocomplete="off">
+        </div>
+        <div class="line-chips" id="lineChips"></div>
+        <div class="sec-h"><h4 id="linesListTitle">Elige una línea</h4></div>
+        <div class="list" id="linesList"></div>
+      </div>
+
+      <!-- ---------- DETALLE DE LÍNEA ---------- -->
+      <div class="view hidden" id="v-line">
+        <div class="line-hero">
+          <div class="line-badge big" id="lhBadge">A</div>
+          <div class="line-hero-t">
+            <h3 id="lhName">Línea A</h3>
+            <p id="lhRoute">Mariano Fragueiro a Plaza de las Américas</p>
+          </div>
+          <button class="star-btn" id="lhFav" type="button"><span class="ico" data-ico="star"></span></button>
+        </div>
+        <div class="seg" id="lhSeg"></div>
+        <div class="line-stats" id="lhStats"></div>
+        <div class="line-actions">
+          <button class="btn ghost" type="button" data-open="sched"><span class="ico" data-ico="clock"></span>Horarios</button>
+          <button class="btn ghost" id="btnShareLine" type="button"><span class="ico" data-ico="share"></span>Compartir</button>
+          <button class="btn ghost" id="btnCenterLine" type="button"><span class="ico" data-ico="locate"></span>Ver en mapa</button>
+        </div>
+        <div class="sec-h"><h4>Paradas y próximas llegadas</h4><span class="hint" id="lhHint">tiempo real</span></div>
+        <div class="list" id="lhStops"></div>
+      </div>
+
+      <!-- ---------- PRÓXIMOS ARRIBOS / PARADA ---------- -->
+      <div class="view hidden" id="v-stop">
+        <div class="stop-hero">
+          <div class="stop-ico" data-ico="stop"></div>
+          <div><h3 id="stopName">Parada</h3><p id="stopMeta">Código · distancia</p></div>
+        </div>
+        <div class="list" id="stopArrivals"></div>
+        <div class="note">*Tiempo estimado según diagrama de operación. Puede variar por tránsito.</div>
+        <div class="line-actions">
+          <button class="btn primary" id="btnStopSched" type="button"><span class="ico" data-ico="clock"></span>Horarios de esta parada</button>
+        </div>
+      </div>
+
+      <!-- ---------- CERCA MÍO ---------- -->
+      <div class="view hidden" id="v-nearby">
+        <div class="view-head">
+          <div class="vh-title"><span class="ico" data-ico="locate"></span><h3>Paradas cercanas</h3></div>
+          <p class="sub" id="nearbySub">Usando tu ubicación</p>
+        </div>
+        <div class="list" id="nearbyList"></div>
+      </div>
+
+      <!-- ---------- FAVORITOS ---------- -->
+      <div class="view hidden" id="v-fav">
+        <div class="view-head">
+          <div class="vh-title"><span class="ico" data-ico="heart"></span><h3>Favoritos</h3></div>
+          <p class="sub">Tus líneas y destinos guardados</p>
+        </div>
+        <div class="sec-h"><h4>Líneas favoritas</h4></div>
+        <div class="list" id="favLines"></div>
+        <div class="sec-h"><h4>Destinos guardados</h4></div>
+        <div class="list" id="favPlaces"></div>
+      </div>
+
+      <!-- ---------- NAVEGACIÓN / INDICACIONES ---------- -->
+      <div class="view hidden" id="v-trip">
+        <div class="trip-hero">
+          <div class="trip-eta"><span id="tripEta">18 min</span><b id="tripClock">Llegás 14:52</b></div>
+          <div class="trip-meta" id="tripMeta">4,2 km · 1 combinación</div>
+          <button class="trip-close" id="btnEndTrip" type="button"><span class="ico" data-ico="close"></span></button>
+        </div>
+        <div class="list" id="tripSteps"></div>
+        <div class="line-actions">
+          <button class="btn ghost" id="btnShareTrip" type="button"><span class="ico" data-ico="share"></span>Compartir viaje</button>
+          <button class="btn ghost" id="btnTripAll" type="button"><span class="ico" data-ico="map"></span>Ver recorrido</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- navegación inferior -->
+  <nav id="nav">
+    <button class="tab active" type="button" data-nav="search"><span class="ico" data-ico="search"></span><b>Buscar</b></button>
+    <button class="tab" type="button" data-nav="fav"><span class="ico" data-ico="heart"></span><b>Favoritos</b></button>
+    <button class="tab report" type="button" data-nav="report"><span class="rep"><span class="ico" data-ico="plus"></span></span><b>Reportar</b></button>
+    <button class="tab" type="button" data-nav="menu"><span class="ava" id="navAva"></span><b>Menú</b></button>
+  </nav>
+</div>
+
+<!-- ===================== PÁGINA COMPLETA (submenús) ===================== -->
+<div id="page" class="hidden">
+  <div id="pageHead">
+    <button id="pageBack" type="button"><span class="ico" data-ico="back"></span></button>
+    <span id="pageTitle">Título</span>
+    <button id="pageAction" class="hidden" type="button"></button>
+  </div>
+  <div id="pageBody"></div>
+</div>
+
+<!-- ===================== MENÚ / PERFIL ===================== -->
+<div class="overlay hidden" id="menuOverlay"></div>
+<section class="o-sheet hidden" id="menuSheet">
+  <div class="o-handle"><span></span></div>
+  <div class="profile">
+    <div class="profile-ava" id="profileAva"></div>
+    <div class="profile-t"><h3 id="profileName">Invitado</h3><p id="profileMail">Iniciá sesión para sincronizar</p></div>
+    <button class="btn soft" id="btnLogin" type="button">Ingresar</button>
+  </div>
+  <div class="menu-list">
+    <button class="m-item" type="button" data-open="lines"><span class="m-ico" data-ico="bus"></span>Encontrá tu bondi<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="sube"><span class="m-ico" data-ico="card"></span>Puntos de recarga SUBE<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="howto"><span class="m-ico" data-ico="info"></span>Cómo usar la app<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="notif"><span class="m-ico" data-ico="bell"></span>Notificaciones<span class="m-badge hidden" id="menuNotifDot"></span><span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="social"><span class="m-ico" data-ico="like"></span>Redes sociales<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="rate"><span class="m-ico" data-ico="star"></span>Calificar experiencia<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="bici"><span class="m-ico" data-ico="bike"></span>BiciCba<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item" type="button" data-open="install"><span class="m-ico" data-ico="download"></span>Instalar BondiWaze<span class="ico chev" data-ico="chevron"></span></button>
+    <div class="m-item static"><span class="m-ico" data-ico="moon"></span>Cambiar tema
+      <label class="switch"><input type="checkbox" id="tglDark"><span class="track"><span class="knob"></span></span></label>
+    </div>
+    <button class="m-item" type="button" data-open="about"><span class="m-ico" data-ico="info"></span>Acerca de<span class="ico chev" data-ico="chevron"></span></button>
+    <button class="m-item danger" type="button" id="btnLogout"><span class="m-ico" data-ico="logout"></span>Cerrar sesión</button>
+  </div>
+  <div class="menu-foot">BondiWaze <span id="appVersion">v1</span> · Datos de líneas y paradas: TU BONDI Córdoba</div>
+</section>
+
+<!-- ===================== REPORTAR ===================== -->
+<div class="overlay hidden" id="reportOverlay"></div>
+<section class="o-sheet hidden" id="reportSheet">
+  <div class="o-handle"><span></span></div>
+  <div class="o-head"><h3>Reportar</h3><p>¿Qué estás viendo? Los reportes ayudan a toda la comunidad</p></div>
+  <div class="rep-grid" id="repGrid"></div>
+  <div class="rep-me" id="repLocation">Reportás sobre: <b>tu ubicación</b></div>
+  <button class="btn ghost wide" id="repCancel" type="button">Cancelar</button>
+</section>
+
+<!-- ===================== LOGIN ===================== -->
+<div class="modal-wrap hidden" id="loginModal">
+  <div class="modal">
+    <div class="modal-ava" id="loginAva"></div>
+    <h3>Iniciar sesión</h3>
+    <p class="muted">Guardá tus líneas y destinos favoritos en todos tus dispositivos</p>
+    <button class="btn google" id="btnGoogle" type="button"><span class="glogo"></span>Continuar con Google</button>
+    <button class="btn ghost wide" id="btnGuest" type="button">Entrar como invitado</button>
+    <button class="btn-text" data-close-modal="loginModal" type="button">Cerrar</button>
+  </div>
+</div>
+
+<!-- ===================== POPUP DEL MAPA ===================== -->
+<div id="mapPopup" class="hidden"></div>
+
+<!-- ===================== TOASTS / PUSH ===================== -->
+<div id="toasts"></div>
+<div id="push" class="hidden">
+  <div class="push-ico" data-ico="bell"></div>
+  <div class="push-b"><b id="pushTitle"></b><span id="pushText"></span></div>
+  <button id="pushClose" type="button"><span class="ico" data-ico="close"></span></button>
+</div>
+
+<!-- ===================== LOADER ===================== -->
+<div id="loader" class="hidden"><div class="spin"></div><span id="loaderTxt">Buscando líneas…</span></div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="data.js?v=172"></script>
+<script src="core.js?v=172"></script>
+<script src="views.js?v=172"></script>
+<script src="main.js?v=172"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# datos crudos de la API de TU BONDI (solo para regenerar data.js)
+_raw/
+
+# artefactos
+node_modules/
+*.log
+_dom.html
+_err.txt
+.DS_Store
+Thumbs.db
