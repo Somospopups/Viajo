@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="style.css?v=184">
+<link rel="stylesheet" href="style.css?v=185">
 </head>
 <body>
 
@@ -58,6 +58,7 @@
 
   <!-- controles flotantes del mapa -->
   <div id="mapCtl">
+    <div id="liveBadge" class="live-badge off" data-on="0" aria-live="polite"><span class="lb-dot"></span>conectando…</div>
     <button class="fab" id="btnLocate" type="button" title="Mi ubicación"><span class="ico" data-ico="locate"></span></button>
     <button class="fab" id="btnFav" type="button" title="Favoritos"><span class="ico" data-ico="heart"></span></button>
   </div>
@@ -161,7 +162,7 @@
           <div><h3 id="stopName">Parada</h3><p id="stopMeta">Código · distancia</p></div>
         </div>
         <div class="list" id="stopArrivals"></div>
-        <div class="note">*Tiempo estimado según diagrama de operación. Puede variar por tránsito.</div>
+        <div class="note">*Arribos en vivo desde la API municipal de TU BONDI. Sin señal, se muestra el horario de programa.</div>
         <div class="line-actions">
           <button class="btn primary" id="btnWatchStop" type="button"><span class="ico" data-ico="bell"></span>Avisarme cuando llegue</button>
           <button class="btn ghost" id="btnStopSched" type="button"><span class="ico" data-ico="clock"></span>Horarios de esta parada</button>
@@ -327,10 +328,10 @@
 <div id="loader" class="hidden"><div class="spin"></div><span id="loaderTxt">Buscando líneas…</span></div>
 
 <script src="vendor/leaflet.js"></script>
-<script src="data.js?v=184"></script>
-<script src="core.js?v=184"></script>
-<script src="bici.js?v=184"></script>
-<script src="views.js?v=184"></script>
-<script src="main.js?v=184"></script>
+<script src="data.js?v=185"></script>
+<script src="core.js?v=185"></script>
+<script src="bici.js?v=185"></script>
+<script src="views.js?v=185"></script>
+<script src="main.js?v=185"></script>
 </body>
 </html>

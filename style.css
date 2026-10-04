@@ -210,6 +210,25 @@ body.dark .leaflet-control-attribution{background:rgba(12,18,25,.72)!important;c
 .fab .ico{width:21px;height:21px}
 .fab.on{background:var(--blue);color:var(--on-blue)}
 
+/* badge de estado del feed en vivo */
+.live-badge{
+  align-self:flex-end;max-width:250px;padding:7px 11px;border-radius:14px;
+  background:var(--bg);color:var(--navy);box-shadow:var(--shadow-1);
+  border:1px solid rgba(0,0,0,.04);font-size:11px;font-weight:700;
+  display:flex;align-items:center;gap:7px;white-space:nowrap;cursor:default
+}
+.live-badge .lb-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--green);flex:0 0 auto;
+  animation:lbPulse 1.7s infinite
+}
+.live-badge.off{color:var(--muted)}
+.live-badge.off .lb-dot{background:var(--red);animation:none}
+@keyframes lbPulse{
+  0%{box-shadow:0 0 0 0 rgba(39,193,113,.45)}
+  70%{box-shadow:0 0 0 7px rgba(39,193,113,0)}
+  100%{box-shadow:0 0 0 0 rgba(39,193,113,0)}
+}
+
 /* ============================ PANEL DE CONTENIDO (a pantalla completa) ============================ */
 #panel{
   position:absolute;left:0;right:0;top:0;bottom:0;

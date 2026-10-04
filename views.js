@@ -77,7 +77,6 @@ function nearestArrivals(limit, maxM) {
   var near = stopsNear(pos.lat, pos.lng, maxM || 1300).slice(0, 10);
   near.forEach(function (n) {
     var routes = stopRoutes[n.i] || [], best = null;
-    routes.slice(0, 3).forEach(function (rr) { ensureBuses(rr.key); });
     routes.forEach(function (rr) {
       var l = lineByKey[rr.key];
       if (!l) return;
@@ -238,7 +237,6 @@ function renderLineDetail() {
   if (!l) return;
   var r = l.r[activeRoute] || l.r[0];
   activeKey = r.t;
-  ensureBuses(r.t);
   $('#lhBadge').textContent = l.n;
   $('#lhBadge').style.background = l.c;
   $('#lhName').textContent = 'Línea ' + l.n;
@@ -247,7 +245,7 @@ function renderLineDetail() {
     return '<button type="button" data-seg="' + i + '" class="' + (i === activeRoute ? 'on' : '') + '">' +
       (rr.s === 'V' ? 'Vuelta' : 'Ida') + ' · ' + rr.k.toFixed(1).replace('.', ',') + ' km</button>';
   }).join('');
-  var live = busesOn(r.t).length;
+  var live = liveCountForLine(l);
   $('#lhStats').innerHTML =
     '<div class="stat"><b>' + r.p + '</b><span>paradas</span></div>' +
     '<div class="stat"><b>' + r.k.toFixed(1).replace('.', ',') + '</b><span>kilómetros</span></div>' +
@@ -262,6 +260,7 @@ function renderLineDetail() {
 function renderLineStops() {
   var r = activeLine.r[activeRoute];
   var stops = D.R[r.t] || [];
+  fetchStopArribos(stopCodesForRoute(r.t));
   etaSubs = [];
   $('#lhStops').innerHTML = stops.map(function (si, idx) {
     var s = D.P[si];
@@ -307,7 +306,8 @@ function drawRoute(key) {
   if (!t) return;
   busRoute = key;
   activeKey = key;
-  ensureBuses(key);
+  fetchStopArribos(stopCodesForRoute(key));
+  fetchLiveRoute(key, true);
   syncBusLayer();
   var meta = routeMeta[key], col = meta ? meta.l.c : '#33CCFF';
   var latlngs = t.map(function (p) { return [p[1], p[0]]; });
@@ -340,7 +340,8 @@ function clearRoute() {
   layerRoute.clearLayers(); layerStops.clearLayers(); layerWalk.clearLayers(); layerFlags.clearLayers();
   activeKey = null; etaSubs = []; busRoute = null; syncBusLayer();
 }
-function openStopPopup(si, latlng, key) {
+var lastPopup = null;
+function stopPopupHtml(si, latlng, key) {
   var s = D.P[si];
   var routes = (stopRoutes[si] || []).slice(0, 4);
   var rows = routes.map(function (rr) {
@@ -348,15 +349,29 @@ function openStopPopup(si, latlng, key) {
     var a = nextArrival(rr.key, si);
     return '<div class="row" style="border:0;background:none;padding:5px 2px;cursor:default">' +
       '<div class="r-b" style="background:' + l.c + '">' + l.n + '</div>' +
-      '<div class="r-t"><b>' + (routeMeta[rr.key] ? routeMeta[rr.key].r.n : '') + '</b></div>' +
+      '<div class="r-t"><b>' + (routeMeta[rr.key] ? routeMeta[rr.key].r.n : '') + '</b>' +
+      (a && a.live ? '<span class="p-live">en vivo</span>' : '') + '</div>' +
       '<span class="eta-pill ' + (a ? etaClass(a.min) : 'eta-r') + '">' + (a ? fmtMin(a.min) : '—') + '</span></div>';
   }).join('');
-  showPopup(latlng || [s.la, s.lo],
-    '<div class="wz-pop"><div class="p-top"><span class="p-badge" style="background:' + (key && routeMeta[key] ? routeMeta[key].l.c : '#0FA6D8') + '">' + icoSvg('stop') + '</span>' +
+  return '<div class="wz-pop"><div class="p-top"><span class="p-badge" style="background:' + (key && routeMeta[key] ? routeMeta[key].l.c : '#0FA6D8') + '">' + icoSvg('stop') + '</span>' +
     '<div class="p-t"><b>' + s.n + '</b><span>Código ' + s.k + ' · ' + fmtMin(walkMinTo(s.la, s.lo)) + ' caminando</span></div>' +
     '<button class="p-close" data-pop="1">' + icoSvg('close') + '</button></div>' +
     '<div class="p-arr">' + rows + '</div>' +
-    '<div class="p-foot"><button data-stop="' + si + '">Ver parada</button><button class="ghost" data-navto="' + si + '">Ir allá</button></div></div>');
+    '<div class="p-foot"><button data-stop="' + si + '">Ver parada</button><button class="ghost" data-navto="' + si + '">Ir allá</button></div></div>';
+}
+function openStopPopup(si, latlng, key) {
+  var s = D.P[si];
+  lastPopup = { si: si, latlng: latlng, key: key };
+  fetchStopArribos([s.k]);
+  showPopup(latlng || [s.la, s.lo], stopPopupHtml(si, latlng, key));
+  if (curPopup) curPopup._stop = si;
+}
+/* re-dibuja el popup cuando llegan arribos reales de esa parada */
+function refreshStopPopup() {
+  if (!curPopup || !lastPopup || curPopup._stop !== lastPopup.si) return;
+  curPopup.setContent(stopPopupHtml(lastPopup.si, lastPopup.latlng, lastPopup.key));
+  var el = curPopup.getElement && curPopup.getElement();
+  if (el) hydrate(el);
 }
 
 /* =========================== PARADA / CERCA MÍO =========================== */
@@ -364,7 +379,7 @@ var currentStop = null;
 function openStopView(si) {
   currentStop = si;
   var s = D.P[si];
-  (stopRoutes[si] || []).slice(0, 3).forEach(function (rr) { ensureBuses(rr.key); });
+  fetchStopArribos([s.k]);
   openView('v-stop');
   $('#stopName').textContent = s.n;
   var d = distM([s.la, s.lo], [myPos().lat, myPos().lng]);
@@ -388,7 +403,7 @@ function renderStopArrivals() {
     return '<div class="stop-row" data-line="' + x.l.i + '" style="--c:' + x.l.c + '">' +
       '<div class="stop-n" style="border-color:' + x.l.c + '">' + x.l.n + '</div>' +
       '<div class="stop-t"><b>' + (routeMeta[x.key] ? routeMeta[x.key].r.n : 'Línea ' + x.l.n) + '</b>' +
-      '<span>' + (x.a ? (x.a.real ? 'próxima salida' : 'estimado sin señal') : 'fuera de servicio') + '</span></div>' +
+      '<span>' + (x.a ? (x.a.live ? 'en vivo' : (x.a.real ? 'próxima salida' : 'estimado sin señal')) : 'fuera de servicio') + '</span></div>' +
       '<span class="eta-pill ' + (x.a ? etaClass(x.a.min) : 'eta-r') + '" data-eta="' + x.key + '|' + si + '">' + (x.a ? fmtMin(x.a.min) : '—') + '</span></div>';
   }).join('') : emptyHtml('bus', 'Sin datos de esta parada', 'No hay líneas asociadas');
   hydrate($('#v-stop'));
@@ -396,6 +411,7 @@ function renderStopArrivals() {
 function renderNearby() {
   var pos = myPos();
   var near = stopsNear(pos.lat, pos.lng, 1500).slice(0, 14);
+  fetchStopArribos(near.slice(0, 8).map(function (n) { return D.P[n.i].k; }));
   $('#nearbySub').textContent = near.length ? near.length + ' paradas en un radio de 1,5 km' : 'Buscando paradas cerca tuyo';
   $('#nearbyList').innerHTML = near.length ? near.map(function (n) {
     var s = D.P[n.i];
@@ -955,7 +971,7 @@ function notify(title, body, tag) {
 function startWatch(key, si) {
   var l = lineByKey[key], s = D.P[si];
   if (!l || !s) { toast('Sin datos', 'No se pudo activar el aviso', 'warn', 'var(--red)'); return; }
-  ensureBuses(key);
+  fetchStopArribos([s.k]);
   watch = { key: key, si: si, phase: -1 };
   askNotify(function (mode) {
     if (mode === 'sys') toast('Avisos activados', 'Te avisamos cuándo salir y cuándo llega', 'bell', 'var(--green)');
@@ -986,7 +1002,7 @@ function tickWatch() {
   if (!watch || tripOpt || pickMode) { if (bar) bar.classList.add('hidden'); return; }
   var s = D.P[watch.si], l = lineByKey[watch.key];
   if (!s || !l) { stopWatch(); return; }
-  ensureBuses(watch.key);
+  fetchStopArribos([s.k]);
   var a = nextArrival(watch.key, watch.si);
   var walk = walkMinTo(s.la, s.lo);
   var eta = a ? a.min : null;

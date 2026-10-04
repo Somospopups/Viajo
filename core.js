@@ -1,7 +1,7 @@
-/* Bondi · núcleo: iconos, utilidades, índices, mapa y simulación */
+/* Bondi · núcleo: iconos, utilidades, índices, mapa y bondis en vivo */
 'use strict';
 
-var APP_VERSION = 'v184';
+var APP_VERSION = 'v185';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
 function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
@@ -275,40 +275,96 @@ function locateMe() {
   }, { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 });
 }
 
-/* =========================== SIMULACIÓN DE BONDIS =========================== */
-var BUS_MARKERS = false; /* los bondis no se dibujan en el mapa: solo se ve tu punto (siguen simulándose para los arribos) */
-var busRoute = null; /* salvo que estés viendo un recorrido: ahí sí se dibujan los bondis de esa línea */
-var buses = [], simRoutes = [];
-function pickSimRoutes() {
-  var used = {}, list = [];
-  var order = D.lineas.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; });
-  for (var i = 0; i < order.length; i++) {
-    var l = order[i];
-    var r = l.r.filter(function (x) { return D.traza[x.t] && D.R[x.t] && D.R[x.t].length > 6; })[0];
-    if (r && !used[r.t]) { used[r.t] = 1; list.push(r.t); }
-    if (list.length >= 14) break;
-  }
-  return list;
-}
+/* =========================== BONDIS EN VIVO ===========================
+   Posiciones reales de la flota, servidas por nuestro relay (Cloudflare
+   Worker) contra la API municipal de TU BONDI. Nunca se simulan: si no
+   hay datos frescos, los bondis se apagan y el badge lo dice. */
+var LIVE_URL = (function () {
+  try {
+    var q = new URLSearchParams(location.search).get('live');
+    if (q && /^https?:\/\//.test(q)) return q.replace(/\/+$/, '');
+  } catch (e) {}
+  return 'https://bondi-live.somospopups.workers.dev';
+})();
+var LIVE_MS = 10000;        /* refresco del feed global */
+var LIVE_TIMEOUT = 20000;   /* el relay barre lotes: esperamos hasta 20 s */
+var DATA_MAX = 90000;       /* bondis con datos m?s viejos que esto se apagan */
+var LIVE_STALE = 90000;     /* antigüedad máxima para considerar datos frescos */
+var ARRIBO_STALE = 120000;  /* antigüedad máxima de los arribos por parada */
+var BUS_MARKERS = true;
+var busRoute = null;
+var buses = [], busBySerie = {};
+var liveTimer = null, tickTimer = null;
+var live = { ok: false, started: false, ts: 0, n: 0, srcTs: 0, err: 0 };
+var liveStops = {}, liveStopReq = {};
+
 function busGlyph() {
   return '<svg viewBox="0 0 24 24" fill="none"><rect x="6.5" y="3.5" width="11" height="17" rx="4" fill="#fff"/><rect x="8.4" y="6" width="7.2" height="4.6" rx="2" fill="rgba(0,0,0,.38)"/><rect x="8.4" y="12.6" width="7.2" height="5" rx="2" fill="rgba(0,0,0,.24)"/><circle cx="8.6" cy="18.6" r="1.1" fill="rgba(0,0,0,.45)"/><circle cx="15.4" cy="18.6" r="1.1" fill="rgba(0,0,0,.45)"/></svg>';
 }
-function spawnBus(key, dist) {
-  var meta = routeMeta[key];
-  var len = cumDist[key][cumDist[key].length - 1];
-  var speed = (17 + (hash(key + '|' + Math.round(dist)) % 9)) / 3.6;
-  var el = L.marker([0, 0], {
+function liveKeyOf(b) {
+  var k = String(b.linea) + '_' + String(b.cliente) + '_' + String(b.ruta);
+  return D.traza[k] ? k : null;
+}
+function trueBearing(a, b) {
+  var dLon = (b[1] - a[1]) * Math.cos(((a[0] + b[0]) / 2) * Math.PI / 180);
+  var dLat = b[0] - a[0];
+  return (Math.atan2(dLon, dLat) * 180) / Math.PI;
+}
+function projectBus(m) {
+  if (!m.key) return;
+  var t = D.traza[m.key], c = cumDist[m.key];
+  if (!t || !c || !c.length) return;
+  var best = 0, bd = Infinity;
+  for (var i = 0; i < t.length; i++) {
+    var d = distM(m.to, [t[i][1], t[i][0]]);
+    if (d < bd) { bd = d; best = i; }
+  }
+  m.dist = c[best];
+  m.len = c[c.length - 1];
+  m.off = bd;
+}
+function measureSpeed(m) {
+  if (!m.prevTo || !m.prevT) return;
+  var dt = (m.tAt - m.prevT) / 1000;
+  if (dt < 4 || dt > 300) return;
+  var v = distM(m.prevTo, m.to) / dt;
+  if (v > 13) v = 13;
+  if (v < 1) v = 1;
+  m.speed = m.speed * 0.55 + v * 0.45;
+}
+function createBus(id, b, key) {
+  var meta = key ? routeMeta[key] : null;
+  var col = meta ? meta.l.c : (b.color || '#0FA6D8');
+  var name = meta ? meta.l.n : ('L' + b.linea);
+  var el = L.marker([b.lat, b.lon], {
     icon: L.divIcon({
       className: 'mk-bus',
-      html: '<span class="bwrap" style="background:' + meta.l.c + '"><span class="rot">' + busGlyph() + '</span></span><span class="blabel">' + meta.l.n + '</span><span class="dem"></span>',
+      html: '<span class="bwrap" style="background:' + col + '"><span class="rot">' + busGlyph() + '</span></span><span class="blabel">' + name + '</span><span class="dem"></span>',
       iconSize: [34, 34], iconAnchor: [17, 17]
     }),
     zIndexOffset: 500
-  });
-  if (BUS_MARKERS || (busRoute && key === busRoute)) el.addTo(layerBuses);
-  var b = { key: key, dist: dist % len, speed: speed, len: len, el: el, coche: 1000 + (hash(key + dist) % 899), dem: '' };
-  buses.push(b);
-  return b;
+  }).addTo(layerBuses);
+  var m = {
+    id: id, serie: String(b.serie || ''), coche: String(b.coche || ''),
+    linea: String(b.linea || ''), cliente: b.cliente, ruta: b.ruta,
+    key: key, el: el, dist: 0, len: 0, off: 0, speed: 5.5, color: col,
+    cur: [b.lat, b.lon], from: [b.lat, b.lon], to: [b.lat, b.lon],
+    prevTo: null, prevT: null, tAt: Date.now(), seenAt: Date.now(), ang: 0, proximo: '', dem: ''
+  };
+  buses.push(m);
+  projectBus(m);
+  return m;
+}
+function removeBus(id) {
+  var m = busBySerie[id];
+  if (!m) return;
+  if (layerBuses && layerBuses.hasLayer(m.el)) layerBuses.removeLayer(m.el);
+  var i = buses.indexOf(m);
+  if (i >= 0) buses.splice(i, 1);
+  delete busBySerie[id];
+}
+function clearBuses() {
+  Object.keys(busBySerie).forEach(removeBus);
 }
 /* muestra/oculta los bondis según el recorrido que estás viendo */
 function syncBusLayer() {
@@ -319,54 +375,249 @@ function syncBusLayer() {
     else if (!show && on) layerBuses.removeLayer(b.el);
   });
 }
-function startSim() {
-  simRoutes = pickSimRoutes();
-  simRoutes.forEach(function (k) {
-    var len = cumDist[k][cumDist[k].length - 1];
-    var n = 3 + (hash(k) % 3);
-    for (var i = 0; i < n; i++) spawnBus(k, (len / n) * i + (hash(k + i) % 300));
-  });
-  setInterval(tickBuses, 650);
-  tickBuses();
-}
-function ensureBuses(key) {
-  if (!key || !cumDist[key] || !cumDist[key].length) return;
-  if (busesOn(key).length) return;
-  var len = cumDist[key][cumDist[key].length - 1];
-  for (var i = 0; i < 3; i++) spawnBus(key, (len / 3) * i + (hash(key + i) % 240));
-}
-function demColor(d) { return d === 'eta-g' ? '#12A05A' : d === 'eta-o' ? '#D97100' : '#E23B3B'; }
-function tickBuses() {
-  buses.forEach(function (b) {
-    b.dist += b.speed * 1.15;
-    if (b.dist > b.len) b.dist -= b.len;
-    var p = pointAt(b.key, b.dist);
-    if (!p) return;
-    b.el.setLatLng([p.lat, p.lon]);
-    var el = b.el.getElement();
-    if (!el) return;
-    var rot = el.querySelector('.rot');
-    if (rot) rot.style.transform = 'rotate(' + p.ang + 'deg)';
-    var dem = el.querySelector('.dem');
-    if (dem && dem.textContent !== (b.dem || '')) {
-      dem.textContent = b.dem || '';
-      dem.style.display = b.dem ? 'block' : 'none';
-      dem.style.background = b.dem ? demColor(etaClass(parseInt(b.dem, 10) || 99)) : 'transparent';
+/* partial=true: feed de detalle (paradas de la línea abierta); no invalida los datos globales */
+function applyLive(j, partial) {
+  live.started = true;
+  if (!j || j.ok !== true || !Array.isArray(j.buses)) {
+    if (!partial) {
+      live.ok = false;
+      live.n = 0;
+      live.ts = Date.now();
+      clearBuses();
     }
+    renderLiveBadge();
+    return;
+  }
+  var now = Date.now();
+  var srcTs = (typeof j.ts === 'number' && j.ts > 1e12) ? j.ts : now;
+  j.buses.forEach(function (b) {
+    if (typeof b.lat !== 'number' || typeof b.lon !== 'number') return;
+    var id = String(b.serie || '') || ('c' + b.coche);
+    if (!id || id === 'undefined' || id === 'null') return;
+    var key = liveKeyOf(b);
+    var m = busBySerie[id];
+    if (!m) { m = createBus(id, b, key); busBySerie[id] = m; }
+    m.seenAt = now;
+    m.dataTs = (typeof b.ts === 'number' && b.ts > 1e12) ? b.ts : now;
+    m.prevTo = m.to.slice();
+    m.prevT = m.tAt;
+    m.from = m.cur.slice();
+    m.to = [b.lat, b.lon];
+    m.tAt = now;
+    if (key) m.key = key;
+    m.linea = String(b.linea);
+    m.parada = b.parada || '';
+    m.proximo = b.proximo || '';
+    measureSpeed(m);
+    projectBus(m);
   });
-  if (activeKey || (typeof etaSubs !== 'undefined' && etaSubs.length)) refreshBusDemoras();
+  Object.keys(busBySerie).forEach(function (id) {
+    var m = busBySerie[id];
+    if (now - (m.dataTs || m.seenAt) > DATA_MAX) removeBus(id);
+  });
+  live.ok = true;
+  live.n = buses.length;
+  live.ts = srcTs;
+  live.srcTs = srcTs;
+  renderLiveBadge();
+  refreshLiveContext();
+}
+function fetchLive() {
+  if (!LIVE_URL) return Promise.resolve(null);
+  var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var to = setTimeout(function () { if (ctl) ctl.abort(); }, LIVE_TIMEOUT);
+  return fetch(LIVE_URL + '/live', ctl ? { cache: 'no-store', signal: ctl.signal } : { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { clearTimeout(to); applyLive(j); return j; })
+    .catch(function (e) {
+      clearTimeout(to);
+      live.err++;
+      if (!live.started) { live.started = true; live.ok = false; live.ts = Date.now(); renderLiveBadge(); }
+      return null;
+    });
+}
+/* feed de detalle: bondis cercanos a las paradas de la línea que estás viendo */
+var liveReq = {};
+function fetchLiveRoute(key, force) {
+  if (!LIVE_URL || !key) return Promise.resolve(null);
+  var codes = stopCodesForRoute(key);
+  if (!codes.length) return Promise.resolve(null);
+  var ck = codes.join(',');
+  var now = Date.now();
+  if (!force && liveReq[ck] && now - liveReq[ck] < 15000) return Promise.resolve(null);
+  liveReq[ck] = now;
+  var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var to = setTimeout(function () { if (ctl) ctl.abort(); }, LIVE_TIMEOUT);
+  return fetch(LIVE_URL + '/live?codes=' + ck, ctl ? { cache: 'no-store', signal: ctl.signal } : { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { clearTimeout(to); applyLive(j, true); return j; })
+    .catch(function () { clearTimeout(to); return null; });
+}
+function renderLiveBadge() {
+  var el = document.getElementById('liveBadge');
+  if (!el) return;
+  var html;
+  if (!live.started) html = '<span class="lb-dot"></span>conectando…';
+  else if (live.ok && live.ts && Date.now() - live.ts < LIVE_STALE) {
+    var age = Math.max(0, Math.round((Date.now() - live.ts) / 1000));
+    html = '<span class="lb-dot"></span>en vivo · hace ' + (age < 100 ? age : '99+') + ' s · ' + live.n + ' bondis';
+  } else html = '<span class="lb-dot"></span>sin datos en vivo';
+  var on = html.indexOf('sin datos') < 0 && html.indexOf('conectando') < 0;
+  el.className = 'live-badge' + (on ? ' on' : ' off');
+  el.setAttribute('data-on', on ? '1' : '0');
+  if (el._html !== html) { el.innerHTML = html; el._html = html; }
+}
+function tickBuses() {
+  var now = Date.now();
+  var fresh = live.ok && live.ts && now - live.ts < LIVE_STALE;
+  buses.slice().forEach(function (b) {
+    if (now - (b.dataTs || b.seenAt) > DATA_MAX) removeBus(b.id);
+  });
+  if (!fresh) {
+    if (buses.length) clearBuses();
+    if (live.ts && now - live.ts > LIVE_STALE) live.ok = false;
+  } else {
+    buses.forEach(function (b) {
+      var p = Math.min(1, (now - b.tAt) / LIVE_MS);
+      var e = p * p * (3 - 2 * p);
+      b.cur = [b.from[0] + (b.to[0] - b.from[0]) * e, b.from[1] + (b.to[1] - b.from[1]) * e];
+      b.el.setLatLng(b.cur);
+      var el = b.el.getElement();
+      if (!el) return;
+      if (distM(b.from, b.to) > 6) {
+        var rot = el.querySelector('.rot');
+        if (rot) rot.style.transform = 'rotate(' + ((trueBearing(b.from, b.to) + 360) % 360).toFixed(1) + 'deg)';
+      }
+      var dem = el.querySelector('.dem');
+      if (dem && dem.textContent !== (b.dem || '')) {
+        dem.textContent = b.dem || '';
+        dem.style.display = b.dem ? 'block' : 'none';
+        dem.style.background = b.dem ? demColor(etaClass(parseInt(b.dem, 10) || 99)) : 'transparent';
+      }
+    });
+  }
+  if ((typeof activeKey !== 'undefined' && activeKey) || (typeof etaSubs !== 'undefined' && etaSubs.length)) refreshBusDemoras();
+  tickBuses._n = (tickBuses._n || 0) + 1;
+  if (tickBuses._n % 8 === 0) renderLiveBadge();
+}
+function startLive() {
+  if (liveTimer) return;
+  renderLiveBadge();
+  fetchLive();
+  liveTimer = setInterval(fetchLive, LIVE_MS);
+  tickTimer = setInterval(tickBuses, 650);
 }
 function busesOn(key) { return buses.filter(function (b) { return b.key === key; }); }
+function demColor(d) { return d === 'eta-g' ? '#12A05A' : d === 'eta-o' ? '#D97100' : '#E23B3B'; }
+
+/* ---------- arribos reales por parada (detalle) ---------- */
+function etaMin(p) {
+  if (!p) return null;
+  var s = String(p.proximo == null ? '' : p.proximo).trim();
+  if (s) {
+    if (/llegando|ya/i.test(s)) return 1;
+    var m = s.match(/(\d+)\s*(min|minutes?)/i);
+    if (m) return Math.max(1, parseInt(m[1], 10));
+    if (/^\d+$/.test(s)) return Math.max(1, parseInt(s, 10));
+    return null;
+  }
+  if (p.dist_parada != null && p.dist_parada <= 60) return 1;
+  return null;
+}
+function stopCodesForRoute(key, max) {
+  var stops = D.R[key] || [];
+  if (!stops.length) return [];
+  var n = Math.min(max || 8, stops.length);
+  var step = Math.max(1, Math.ceil(stops.length / n));
+  var out = [];
+  for (var i = 0; i < stops.length && out.length < n; i += step) {
+    if (D.P[stops[i]]) out.push(D.P[stops[i]].k);
+  }
+  return out;
+}
+function fetchStopArribos(codes, force) {
+  if (!LIVE_URL) return Promise.resolve(null);
+  codes = (codes || []).map(function (c) { return String(c == null ? '' : c).trim(); })
+    .filter(function (c, i, a) { return /^[A-Za-z0-9]{1,8}$/.test(c) && a.indexOf(c) === i; })
+    .slice(0, 8);
+  if (!codes.length) return Promise.resolve(null);
+  var now = Date.now();
+  var todo = codes.filter(function (c) {
+    if (force) return true;
+    var last = Math.max(liveStopReq[c] || 0, (liveStops[c] && liveStops[c].ts) || 0);
+    return now - last > 15000;
+  });
+  if (!todo.length) return Promise.resolve(null);
+  todo.forEach(function (c) { liveStopReq[c] = now; });
+  var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var to = setTimeout(function () { if (ctl) ctl.abort(); }, LIVE_TIMEOUT);
+  return fetch(LIVE_URL + '/arribos?codes=' + todo.join(','), ctl ? { cache: 'no-store', signal: ctl.signal } : { cache: 'no-store' })
+    .then(function (r) { clearTimeout(to); return r.json(); })
+    .then(function (j) {
+      clearTimeout(to);
+      if (!j || !j.stops) return j;
+      Object.keys(j.stops).forEach(function (c) {
+        liveStops[c] = { ts: Date.now(), proximos: (j.stops[c] && j.stops[c].proximos) || [] };
+      });
+      onArribosArrive();
+      return j;
+    })
+    .catch(function () { return null; });
+}
+function onArribosArrive() {
+  if (typeof refreshBusDemoras === 'function') refreshBusDemoras();
+  if (typeof currentStop !== 'undefined' && currentStop != null && typeof renderStopArrivals === 'function') renderStopArrivals();
+  if (typeof refreshStopPopup === 'function') refreshStopPopup();
+  if (typeof renderNearby === 'function' && $('#v-nearby') && !$('#v-nearby').classList.contains('hidden')) renderNearby();
+}
+/* mantiene frescos los arribos del contexto abierto (línea o parada) */
+function refreshLiveContext() {
+  if (typeof currentStop !== 'undefined' && currentStop != null && D.P[currentStop]) {
+    fetchStopArribos([D.P[currentStop].k]);
+  }
+  if (typeof activeKey !== 'undefined' && activeKey) {
+    fetchStopArribos(stopCodesForRoute(activeKey));
+    fetchLiveRoute(activeKey);
+  }
+}
+function liveCountForLine(l) {
+  if (!l) return 0;
+  var ids = {}, lid = String(l.i);
+  buses.forEach(function (b) { if (b.linea === lid) ids[b.id] = 1; });
+  Object.keys(liveStops).forEach(function (c) {
+    var ls = liveStops[c];
+    if (Date.now() - ls.ts > ARRIBO_STALE) return;
+    ls.proximos.forEach(function (p) { if (String(p.linea) === lid) ids['p' + (p.serie || p.coche)] = 1; });
+  });
+  return Object.keys(ids).length;
+}
+
 function nextArrival(key, stopIdx) {
+  var st = D.P[stopIdx];
+  var ls = st && liveStops[st.k];
+  if (ls && Date.now() - ls.ts < ARRIBO_STALE) {
+    var want = String(key).split('_'), best = null;
+    for (var i = 0; i < ls.proximos.length; i++) {
+      var p = ls.proximos[i];
+      if (String(p.linea) !== want[0]) continue;
+      if (p.cliente != null && String(p.cliente) !== want[1]) continue;
+      if (p.ruta != null && String(p.ruta) !== want[2]) continue;
+      var min = etaMin(p);
+      if (min == null) continue;
+      if (!best || min < best.min) best = { min: min, real: true, live: true, proximo: p.proximo };
+    }
+    if (best) return best;
+  }
   var sd = stopDist[key] && stopDist[key][stopIdx];
   if (sd == null) return null;
-  var best = null;
+  var out = null;
   busesOn(key).forEach(function (b) {
+    if (!b.len) return;
     var wait = b.dist <= sd ? b.len - b.dist + sd : sd - b.dist;
     var min = wait / b.speed / 60;
-    if (!best || min < best.min) best = { min: min, coche: b.coche, real: true };
+    if (!out || min < out.min) out = { min: min, real: true };
   });
-  if (best) return best;
+  if (out) return out;
   return synthArrival(key, stopIdx);
 }
 function synthArrival(key, stopIdx) {

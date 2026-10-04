@@ -1,0 +1,14 @@
+{
+  "name": "bondi-live",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Relay en vivo de posiciones de colectivos (TU BONDI)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "stops": "node genstops.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.20.0"
+  }
+}

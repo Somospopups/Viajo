@@ -154,9 +154,9 @@ var PAGES = {
         '<div class="p-sec"><h4>Sobre la app</h4><div class="p-list">' +
         pItem('map', 'Mapa y comunidad', 'Paradas, recorridos y tráfico en vivo de la comunidad para que viajes mejor.') +
         pItem('bus', 'Datos de líneas', 'Recorridos, paradas y horarios provistos por TU BONDI Córdoba.') +
-        pItem('info', 'Tiempos de llegada', 'Combinamos el diagrama de operación con la posición de las unidades.') +
+        pItem('info', 'Tiempos de llegada', 'Arribos y posiciones en vivo de la API municipal de TU BONDI; sin señal, el diagrama de operación.') +
         '</div></div>' +
-        '<div class="p-sec"><h4>Transparencia</h4><div class="card"><p class="muted">Las posiciones de los bondis se simulan sobre los recorridos oficiales para este prototipo; los horarios y paradas sí corresponden al sistema real de la ciudad.</p></div></div>' +
+        '<div class="p-sec"><h4>Transparencia</h4><div class="card"><p class="muted">Las posiciones de los bondis se leen en vivo desde la API municipal de TU BONDI (a través de nuestro relay propio). Si no hay datos frescos los indicadores se apagan y se muestra el horario de programa; nunca se inventan posiciones. Recorridos, paradas y horarios corresponden al sistema real de la ciudad.</p></div></div>' +
         '<div class="menu-foot" style="border:0">Versión ' + APP_VERSION + ' · Córdoba Capital, Argentina</div>';
     }
   },
@@ -722,7 +722,7 @@ function boot() {
   initMap();
   if (store.get('dark')) setTileMode('dark');
   setUserLocation(CBA[0], CBA[1]);
-  startSim();
+  startLive();
   renderLineStrip();
   renderSearchList();
   initMapPick();
