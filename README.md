@@ -89,8 +89,12 @@ Para cada unidad en vivo de la línea elegida:
 - si ni siquiera llegás al más próximo → “No alcanzás ese bondi” y se sigue
   esperando al siguiente. Nunca manda a caminar para hacer perder el bondi.
 
-El aviso dice además **por dónde viene**: `busPor()` toma la parada real más
-cercana a la unidad (“viene por Av. Medina Allende”). Se activa desde una parada
+El aviso dice además **por dónde viene**: `busPor()` toma la unidad que se
+**acerca** a tu parada (rumbo medido con dos muestras consecutivas de la misma
+unidad; si ninguna viene hacia vos, la más cercana) y le asigna la parada real
+más próxima — “viene por Av. Medina Allende”. Sin ese filtro, el “más cercano”
+podía ser el bondi que acaba de pasar en el sentido contrario: te decía “viene
+por Estación ACA” con el bondi a 25 m y 17 min de eta. Se activa desde una parada
 (“Avisarme cuando llegue”) o desde la línea; la barra `#watchBar` recorre las
 fases *esperar → salí → está por llegar → llegó* y se recalcula cada 10 s con el
 relay.
