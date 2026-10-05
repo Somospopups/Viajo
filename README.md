@@ -137,6 +137,11 @@ respeta el `sentido` de cada ruta y se puede cortar y relanzar: lo ya bajado no
 se vuelve a pedir. Hoy cubre las **160 rutas** con **679 claves** de horario
 (`clavesHorario` del build, contra ~72 que tenía el archivo a mano).
 
+En la pantalla de **Horarios** esas 679 salidas se listan agrupadas por
+recorrido con la etiqueta `línea · recorrido` (p. ej. `10 · ITUZAINGO A
+LASALLE`): agrupar sólo por número de línea dejaba 88 grupos con el mismo
+nombre, y una parada sin el sentido no dice nada.
+
 Política de datos: las posiciones **nunca se simulan**. Si no hay datos frescos,
 los bondis se apagan y el badge lo indica; los arribos caen al horario de
 programa.
