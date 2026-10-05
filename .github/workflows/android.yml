@@ -1,0 +1,77 @@
+name: APK Android
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    name: Compilar APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Dependencias JS
+        run: npm ci
+
+      - name: Assets web (www/)
+        run: npm run www
+
+      - name: Sincronizar con Android
+        run: npx cap sync android
+
+      - name: Versionar desde core.js
+        run: |
+          V=$(sed -n "s/.*APP_VERSION *= *'v\([0-9]*\)'.*/\1/p" core.js | head -1)
+          if [ -z "$V" ]; then echo "::error::No pude leer APP_VERSION de core.js"; exit 1; fi
+          echo "Versión de la app: v$V"
+          sed -i "s/versionCode .*/versionCode $V/" android/app/build.gradle
+          sed -i "s/versionName .*/versionName \"$V\"/" android/app/build.gradle
+          grep -E "version(Code|Name)" android/app/build.gradle
+
+      - name: Plataforma Android (SDK 36)
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - name: Caché de Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/build.gradle', 'android/app/build.gradle') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Compilar APK (debug, instalable)
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Empaquetar
+        run: |
+          V=$(sed -n "s/.*APP_VERSION *= *'v\([0-9]*\)'.*/\1/p" core.js | head -1)
+          cp android/app/build/outputs/apk/debug/app-debug.apk "bondi-v$V.apk"
+          ls -lh "bondi-v$V.apk"
+
+      - name: Subir APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: bondi-apk
+          path: bondi-v*.apk
+          if-no-files-found: error
+          retention-days: 30

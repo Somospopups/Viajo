@@ -54,7 +54,9 @@ Cada cambio publicado consume un número de versión (sin decimales: `v186`,
 
 El `?v=` es el que rompe cache en el navegador; el `VERSION` del SW limpia los
 caches viejos en `activate`. Si olvidás el paso 3 la app igual actualiza (el HTML
-siempre entra por red), sólo que queda basura en disco.
+siempre entra por red), sólo que queda basura en disco. El paso 1-3 se puede hacer
+de una con `node tools/bump-version.js 191`, que además verifica que no quede
+ninguna versión vieja en los tres archivos.
 
 Publicar es hacer `git push` a `main`: GitHub Pages despliega desde la raíz de
 esa rama, automáticamente.
@@ -73,6 +75,60 @@ npm run icons
 Salen `icons/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (zona segura
 del 80 % para iconos con máscara) y `apple-touch-icon.png` (180 px, iOS).
 El fondo es el mismo radial del splash.
+
+## Plan de salida (cuándo salir de tu casa)
+
+El motor de avisos (`views.js`: `planOut`, `busPor`, `tickWatch`) aplica la regla
+que define el producto: **caminar hasta la parada y esperar a lo sumo 3 minutos**.
+Para cada unidad en vivo de la línea elegida:
+
+- `walk` = distancia hasta la parada × 1.28 (desvío de cuadras) a 4,6 km/h;
+- se elige el **primer bondi que alcanzás**: el que pasa *después* de que llegás;
+- `leaveIn = eta − walk − 3` → “Salí en X min” (llegás con 3 min de espera);
+- si `leaveIn ≤ 0` → “Es hora de salir” (ya esperás 3 min o menos);
+- si ni siquiera llegás al más próximo → “No alcanzás ese bondi” y se sigue
+  esperando al siguiente. Nunca manda a caminar para hacer perder el bondi.
+
+El aviso dice además **por dónde viene**: `busPor()` toma la parada real más
+cercana a la unidad (“viene por Av. Medina Allende”). Se activa desde una parada
+(“Avisarme cuando llegue”) o desde la línea; la barra `#watchBar` recorre las
+fases *esperar → salí → está por llegar → llegó* y se recalcula cada 10 s con el
+relay.
+
+## APK de Android
+
+La misma app empaquetada con **Capacitor 8** (carpeta `android/`), compilada en
+**GitHub Actions** — no hace falta Java ni el Android SDK en la máquina:
+
+```bash
+npm run www       # genera www/ (assets + bridge.js, el puente nativo)
+npm run android   # = npm run www + cap sync android
+npm run assets    # regenera íconos y splash de Android desde icons/ y logo.svg
+```
+
+`.github/workflows/android.yml` corre en cada push a `main`: `npm ci` →
+`npm run www` → `cap sync android` → versiona `versionCode` y `versionName` desde
+`APP_VERSION` → `./gradlew assembleDebug` → sube el APK como artefacto
+(**bondi-apk** → `bondi-vNNN.apk`, Actions → APK Android → *Artifacts*; dura 30
+días).
+
+Qué cambia dentro de la APK:
+
+- `tools/bridge-src.js` se empaqueta a `www/bridge.js` con esbuild y expone
+  `window.CapBridge` (`LocalNotifications`, `Geolocation`, `App`). En la web no se
+  carga, así que `isNative()` es `false` y nada de esto se ejecuta en Pages.
+- **Avisos programados**: `syncNativePlan()` agenda con
+  `LocalNotifications.schedule()` los tres momentos (`salir`, `cerca`, `subite`);
+  Android los lanza con AlarmManager, **aunque la app esté cerrada**. Se reagenda
+  sólo si el horario se corre más de 45 s y se cancelan al cerrar el aviso.
+- Geolocalización pedida por la WebView de Capacitor, botón atrás de Android que
+  cierra el panel (no la app), refresco al volver de segundo plano.
+- Ícono `#35CDFF`, splash con el logo y permisos (ubicación + notificaciones) en
+  `AndroidManifest.xml`.
+
+La APK se firma con la clave de debug de Gradle: se instala en cualquier teléfono
+(“instalar orígenes desconocidos”), pero no sirve para Play Store. Para publicar
+hay que generar un keystore y compilar `assembleRelease`.
 
 ## Offline
 
@@ -173,6 +229,11 @@ medido es **(0, 0) en todos**.
 ## Pendientes
 
 - Elegir licencia (falta `LICENSE`).
+- Firma release (keystore) para publicar en Play Store; hoy sale APK debug.
+- Rediseño visual tipo Waze (siguiente hito: tarjetas grandes, colores
+  saturados, bottom-sheet con puntos de anclaje).
+- Notificaciones push desde el relay (hoy son locales programadas; un push
+  servidor permitiría avisar con la app cerrada y datos más frescos).
 - Accesibilidad: botones sin nombre accesible y contraste de algunos textos
   (Lighthouse: a11y 0.85).
 - `meta viewport` con `user-scalable=no` (a propósito en una app de mapa, pero

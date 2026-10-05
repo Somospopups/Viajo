@@ -964,9 +964,122 @@ function initMapPick() {
 
 /* =========================== AVISOS DE LLEGADA (SALÍ / LLEGA EN …) =========================== */
 var watch = null, swReg = null;
+
+/* ---------- plataforma: la web no tiene CapBridge, la APK Android sí ---------- */
+function isNative() { return !!(window.CapBridge && window.CapBridge.isNative); }
+function nativeLn() { return window.CapBridge ? window.CapBridge.LocalNotifications : null; }
+/* avisos que el sistema lanza aunque la app esté cerrada (AlarmManager) */
+var LN_IDS = { salir: 7101, cerca: 7102, subite: 7103 };
+var nativePlan = null, nativeNotifOK = false, nativeTried = false, nativePermWarned = false;
+
+function cancelNativePlan() {
+  if (!nativePlan) { return; }
+  nativePlan = null;
+  var ln = nativeLn();
+  if (!ln) return;
+  try { ln.cancel({ notifications: Object.keys(LN_IDS).map(function (k) { return { id: LN_IDS[k] }; }) }); } catch (e) {}
+}
+
+/* t: tiempos absolutos (ms) de cada aviso, o null si no corresponde */
+function syncNativePlan(t, txt) {
+  if (!isNative()) return;
+  var ln = nativeLn();
+  if (!ln) return;
+  var prev = nativePlan || {};
+  var merged = {}, jobs = [];
+  Object.keys(LN_IDS).forEach(function (k) {
+    var p = prev[k], n = t[k];
+    merged[k] = n != null ? n : p;
+    if (n != null && (p == null || Math.abs(n - p) > 45000)) {
+      jobs.push({ id: LN_IDS[k], at: n, title: txt[k].title, body: txt[k].body });
+    }
+  });
+  if (jobs.length) {
+    Promise.all(jobs.map(function (j) {
+      return ln.cancel({ notifications: [{ id: j.id }] }).then(function () {
+        return ln.schedule({
+          notifications: [{
+            id: j.id, title: j.title, body: j.body,
+            schedule: { at: new Date(j.at) }, autoCancel: true
+          }]
+        });
+      });
+    })).then(function () { nativeNotifOK = true; nativeTried = true; })
+      .catch(function () { nativeNotifOK = false; nativeTried = true; });
+  }
+  nativePlan = merged;
+}
+
+/* Dónde está el bondi en su recorrido: la parada real (calle) más cercana a la unidad */
+function busPor(key, si) {
+  var bs = busesOn(key);
+  if (!bs.length) return null;
+  var t = D.P[si], mejor = null;
+  bs.forEach(function (b) {
+    var d = t ? distM(b.cur, [t.la, t.lo]) : 1e9;
+    if (!mejor || d < mejor.d) mejor = { pos: b.cur, d: d };
+  });
+  if (!mejor) return null;
+  var calle = null, dmin = null;
+  (D.R[key] || []).forEach(function (idx) {
+    var s = D.P[idx];
+    if (!s) return;
+    var d = distM(mejor.pos, [s.la, s.lo]);
+    if (dmin == null || d < dmin) { dmin = d; calle = s.n; }
+  });
+  return calle ? { calle: calle, dist: mejor.d } : null;
+}
+
+/* ---------- plan de salida: caminata + espera máxima de 3 min + bondi alcanzable ---------- */
+function liveEtas(key, si) {
+  var s = D.P[si], ls = s && liveStops[s.k];
+  if (!ls || Date.now() - ls.ts >= ARRIBO_STALE) return [];
+  var w = String(key).split('_'), out = [];
+  for (var i = 0; i < ls.proximos.length; i++) {
+    var p = ls.proximos[i];
+    if (String(p.linea) !== w[0]) continue;
+    if (p.cliente != null && String(p.cliente) !== w[1]) continue;
+    if (p.ruta != null && String(p.ruta) !== w[2]) continue;
+    var m = etaMin(p);
+    if (m != null) out.push(m);
+  }
+  return out.sort(function (a, b) { return a - b; });
+}
+/* Devuelve: cuánto caminás, en cuánto viene el bondi, cuándo tenés que salir
+   (llegando con espera de hasta 3 minutos) y si ese bondi lo alcanzás. */
+function planOut(key, si) {
+  var s = D.P[si];
+  if (!s) return { walk: 0, eta: null, leaveIn: null, alcanzable: null };
+  var walk = walkMinTo(s.la, s.lo);
+  var etas = liveEtas(key, si), eta = null, i;
+  if (!etas.length) {
+    var a = nextArrival(key, si);
+    if (!a) return { walk: walk, eta: null, leaveIn: null, alcanzable: null };
+    return { walk: walk, eta: a.min, leaveIn: a.min - walk - 3, alcanzable: a.min >= walk - 0.5 };
+  }
+  for (i = 0; i < etas.length; i++) if (etas[i] >= walk - 0.5) { eta = etas[i]; break; }
+  if (eta == null) return { walk: walk, eta: etas[0], leaveIn: null, alcanzable: false };
+  return { walk: walk, eta: eta, leaveIn: eta - walk - 3, alcanzable: true };
+}
+
 function initNotify() {
-  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  if ('serviceWorker' in navigator && !isNative() && /^https?:$/.test(location.protocol)) {
     try { navigator.serviceWorker.register('sw.js').then(function (r) { swReg = r; }).catch(function () {}); } catch (e) {}
+  }
+  /* al volver de segundo plano refrescamos el plan con datos frescos y
+     el botón atrás de Android cierra el panel en vez de salir de la app */
+  if (isNative() && window.CapBridge && window.CapBridge.App) {
+    var capApp = window.CapBridge.App;
+    try {
+      capApp.addListener('appStateChange', function (st) {
+        if (st && st.isActive) { tickWatch(true); refreshCardEta(); }
+      });
+      capApp.addListener('backButton', function () {
+        if (pickMode) setPickMode(false);
+        else if (viewStack.length > 1) backView();
+        else capApp.exitApp();
+      });
+    } catch (e) {}
   }
   setInterval(function () { tickWatch(); refreshCardEta(); }, 10000);
 }
@@ -1001,16 +1114,34 @@ function startWatch(key, si) {
   if (!l || !s) { toast('Sin datos', 'No se pudo activar el aviso', 'warn', 'var(--red)'); return; }
   fetchStopArribos([s.k]);
   watch = { key: key, si: si, phase: -1 };
-  askNotify(function (mode) {
-    if (mode === 'sys') toast('Avisos activados', 'Te avisamos cuándo salir y cuándo llega', 'bell', 'var(--green)');
-    else toast('Avisos activados', 'Si tu navegador bloquea notificaciones, te avisamos dentro de la app', 'bell', 'var(--blue-700)');
-  });
+  cancelNativePlan();
+  if (isNative() && nativeLn()) {
+    /* Android: pedimos permiso de avisos acá (si lo negás igual te avisamos dentro de la app) */
+    try {
+      nativeLn().requestPermissions().then(function (st) {
+        if (!st || st.display === 'granted') {
+          toast('Avisos activados', 'Te avisamos cuándo salir, cuando viene y cuando llegó', 'bell', 'var(--green)');
+        } else if (!nativePermWarned) {
+          nativePermWarned = true;
+          toast('Avisos bloqueados', 'Activá las notificaciones de Bondi en Ajustes para recibirlos', 'bell', 'var(--amber)');
+        }
+      }).catch(function () {
+        toast('Avisos activados', 'Te avisamos cuándo salir, cuando viene y cuando llegó', 'bell', 'var(--green)');
+      });
+    } catch (e) {}
+  } else {
+    askNotify(function (mode) {
+      if (mode === 'sys') toast('Avisos activados', 'Te avisamos cuándo salir y cuándo llega', 'bell', 'var(--green)');
+      else toast('Avisos activados', 'Si tu navegador bloquea notificaciones, te avisamos dentro de la app', 'bell', 'var(--blue-700)');
+    });
+  }
   syncWatchUI();
-  tickWatch();
+  tickWatch(true);
   push('Avisos activados', 'Línea ' + l.n + ' en ' + s.n + ' · te avisamos cuándo salir de donde estés');
 }
 function stopWatch() {
   watch = null;
+  cancelNativePlan();
   syncWatchUI();
   $('#watchBar').classList.add('hidden');
 }
@@ -1025,35 +1156,74 @@ function showWatchBar() {
   }
   bar.classList.remove('hidden');
 }
-function tickWatch() {
+function tickWatch(force) {
   var bar = $('#watchBar');
-  if (!watch || tripOpt || pickMode) { if (bar) bar.classList.add('hidden'); return; }
+  if (!watch) { cancelNativePlan(); if (bar) bar.classList.add('hidden'); return; }
+  if (tripOpt || pickMode) { if (bar) bar.classList.add('hidden'); return; }
   var s = D.P[watch.si], l = lineByKey[watch.key];
   if (!s || !l) { stopWatch(); return; }
-  fetchStopArribos([s.k]);
-  var a = nextArrival(watch.key, watch.si);
-  var walk = walkMinTo(s.la, s.lo);
-  var eta = a ? a.min : null;
-  var leaveIn = eta != null ? eta - walk - 3 : null;
-  var phase = eta == null ? 0 : eta <= 0.75 ? 3 : eta <= 3 ? 2 : (leaveIn <= 0 ? 1 : 0);
-  var state = eta == null ? 'wait' : phase === 3 ? 'arr' : phase === 2 ? 'soon' : phase === 1 ? 'go' : 'wait';
-  var title, sub;
+  fetchStopArribos([s.k], force);
+
+  var p = planOut(watch.key, watch.si);
+  var walk = p.walk, eta = p.eta, leaveIn = p.leaveIn;
+  var por = eta != null ? busPor(watch.key, watch.si) : null;
+  var calle = por ? por.calle : null;
+  var phase, state, title, sub;
+
   if (eta == null) {
+    phase = 0; state = 'wait';
     title = 'Sin unidades en camino';
     sub = 'Línea ' + l.n + ' · ' + s.n + ' · te avisamos cuando haya dato';
-  } else if (phase === 3) {
+  } else if (p.alcanzable === false) {
+    phase = 0; state = 'wait';
+    title = 'No alcanzás ese bondi';
+    sub = 'Pasa en ' + fmtMin(eta) + ' y caminás ' + fmtMin(walk) + ' · avisamos con el próximo';
+  } else if (eta <= 0.75) {
+    phase = 3; state = 'arr';
     title = '¡Ya llegó tu bondi!';
     sub = 'Línea ' + l.n + ' en ' + s.n + ' · subite';
-  } else if (phase === 2) {
+  } else if (eta <= 3) {
+    phase = 2; state = 'soon';
     title = 'Está por llegar';
-    sub = 'Línea ' + l.n + ' en ' + s.n + ' · llega en ' + fmtMin(eta);
-  } else if (phase === 1) {
+    sub = calle && calle !== s.n
+      ? 'Línea ' + l.n + ' viene por ' + calle + ' · llega en ' + fmtMin(eta)
+      : 'Línea ' + l.n + ' en ' + s.n + ' · llega en ' + fmtMin(eta);
+  } else if (leaveIn <= 0) {
+    phase = 1; state = 'go';
     title = 'Es hora de salir';
-    sub = 'Caminás ' + fmtMin(walk) + ' hasta ' + s.n + ' y llega en ' + fmtMin(eta);
+    sub = 'Caminás ' + fmtMin(walk) + ' hasta ' + s.n + ' · llega en ' + fmtMin(eta) + ' · esperás hasta 3 min';
+  } else if (walk < 0.9) {
+    phase = 0; state = 'wait';
+    title = 'Bondi en ' + fmtMin(eta);
+    sub = 'Ya estás en ' + s.n + ' · línea ' + l.n + ' · esperás hasta 3 min';
   } else {
+    phase = 0; state = 'wait';
     title = 'Salí en ' + fmtMin(leaveIn);
-    sub = 'Línea ' + l.n + ' · ' + s.n + ' · caminás ' + fmtMin(walk) + ' · bondi en ' + fmtMin(eta);
+    sub = 'Línea ' + l.n + ' · llega en ' + fmtMin(eta) + ' · caminás ' + fmtMin(walk) +
+      (calle ? ' · viene por ' + calle : '');
   }
+
+  /* avisos que dispara el sistema (Android) aunque la app esté cerrada */
+  if (isNative()) {
+    var now = Date.now();
+    var mk = function (min) {
+      var at = now + min * 60000;
+      return (min > 0 && at > now + 4000 && at < now + 12 * 3600000) ? at : null;
+    };
+    syncNativePlan(
+      { salir: leaveIn != null ? mk(leaveIn) : null, cerca: mk(eta - 3), subite: mk(eta) },
+      {
+        salir: { title: 'Es hora de salir', body: 'Caminás ' + fmtMin(walk) + ' hasta ' + s.n + '. Si salís ahora, esperás 3 minutos o menos.' },
+        cerca: {
+          title: 'Tu bondi está por llegar',
+          body: (calle && calle !== s.n)
+            ? 'Línea ' + l.n + ' viene por ' + calle + ' · llega en ' + fmtMin(eta)
+            : 'Línea ' + l.n + ' en ' + s.n + ' · llega en ' + fmtMin(eta)
+        },
+        subite: { title: '¡Llegó tu bondi!', body: 'Línea ' + l.n + ' llegó a ' + s.n + '. ¡Subite!' }
+      });
+  }
+
   showWatchBar();
   bar.dataset.state = state;
   $('#wbTitle').textContent = title;
@@ -1061,10 +1231,17 @@ function tickWatch() {
   var pill = $('#wbEta');
   pill.className = 'eta-pill ' + (eta != null ? etaClass(eta) : 'eta-r');
   pill.textContent = eta != null ? fmtMin(eta) : '—';
+
   if (phase > watch.phase) {
-    if (phase === 1) notify('Es hora de salir', 'Caminás ' + fmtMin(walk) + ' hasta ' + s.n + '. Si salís ahora esperás 3 minutos o menos.', 'salir');
-    else if (phase === 2) notify('Tu bondi está por llegar', 'Línea ' + l.n + ' en ' + s.n + ' en ' + fmtMin(eta), 'llega');
-    else if (phase === 3) notify('¡Llegó tu bondi!', 'Línea ' + l.n + ' en ' + s.n + '. ¡Subite!', 'llego');
+    /* en Android los avisos ya salen programados; solo avisamos por acá si fallaron */
+    var sistema = !isNative() || (nativeTried && !nativeNotifOK);
+    if (sistema) {
+      if (phase === 1) notify('Es hora de salir', 'Caminás ' + fmtMin(walk) + ' hasta ' + s.n + '. Si salís ahora esperás 3 minutos o menos.', 'salir');
+      else if (phase === 2) notify('Tu bondi está por llegar',
+        (calle && calle !== s.n) ? 'Línea ' + l.n + ' viene por ' + calle + ' · llega en ' + fmtMin(eta)
+          : 'Línea ' + l.n + ' en ' + s.n + ' en ' + fmtMin(eta), 'llega');
+      else if (phase === 3) notify('¡Llegó tu bondi!', 'Línea ' + l.n + ' llegó a ' + s.n + '. ¡Subite!', 'llego');
+    }
     watch.phase = phase;
   } else if (phase === 0) watch.phase = 0;
 }

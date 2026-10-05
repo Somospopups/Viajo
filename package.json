@@ -5,9 +5,21 @@
   "description": "Bondi · transporte público de Córdoba Capital (PWA)",
   "scripts": {
     "start": "node tools/serve.js",
-    "icons": "node tools/gen-icons.js"
+    "icons": "node tools/gen-icons.js",
+    "www": "node tools/build-www.js",
+    "android": "node tools/build-www.js && cap sync android",
+    "assets": "node tools/gen-android-assets.js"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "sharp": "^0.35.5"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/geolocation": "^8.2.3",
+    "@capacitor/local-notifications": "^8.3.1"
   }
 }

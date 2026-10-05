@@ -8,19 +8,19 @@
    assets nuevos se cachean en runtime), pero queda basura en disco. */
 'use strict';
 
-var VERSION = 'v190';
+var VERSION = 'v191';
 var CACHE = 'bondi-' + VERSION;
 
 /* shell precacheado: con esto la app abre sin conexión */
 var SHELL = [
   './',
   'index.html',
-  'style.css?v=190',
-  'data.js?v=190',
-  'core.js?v=190',
-  'bici.js?v=190',
-  'views.js?v=190',
-  'main.js?v=190',
+  'style.css?v=191',
+  'data.js?v=191',
+  'core.js?v=191',
+  'bici.js?v=191',
+  'views.js?v=191',
+  'main.js?v=191',
   'vendor/leaflet.css',
   'vendor/leaflet.js',
   'logo.svg',

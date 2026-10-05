@@ -8,3 +8,13 @@ _dom.html
 _err.txt
 .DS_Store
 Thumbs.db
+
+# build de la APK (se genera con `npm run www` y `cap sync android`)
+www/
+android/app/src/main/assets/public/
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+android/app/src/main/assets/capacitor.config.json

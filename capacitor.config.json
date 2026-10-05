@@ -1,0 +1,20 @@
+{
+  "appId": "com.somospopups.bondi",
+  "appName": "Bondi",
+  "webDir": "www",
+  "backgroundColor": "#0B1220",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0B1220",
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#33CCFF"
+    }
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
