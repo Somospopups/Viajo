@@ -191,19 +191,26 @@ var PAGES = {
         var s = D.P.filter(function (p) { return p.k === code; })[0];
         return s ? s.n : code;
       }
-      /* agrupadas por línea: con horarios de todo el sistema la lista es larga */
-      var byLine = {};
+      /* agrupadas por recorrido (una parada sólo se entiende con el sentido):
+         la etiqueta es "línea · recorrido". Con sólo el número de línea se
+         repetían 88 grupos, porque ahora hay horarios de las 160 rutas. */
+      var byRoute = {};
       keys.forEach(function (k) {
         var rk = k.substring(0, k.lastIndexOf('_'));
-        (byLine[rk] = byLine[rk] || []).push(k);
+        (byRoute[rk] = byRoute[rk] || []).push(k);
       });
-      $('#schSel').innerHTML = Object.keys(byLine).sort(function (a, b) {
+      function rkLabel(rk) {
+        var l = lineByKey[rk], m = routeMeta[rk];
+        return (l ? l.n : rk.split('_')[0]) + (m && m.r && m.r.n ? ' · ' + m.r.n : '');
+      }
+      $('#schSel').innerHTML = Object.keys(byRoute).sort(function (a, b) {
         var la = lineByKey[a], lb = lineByKey[b];
-        return String(la ? la.n : a).localeCompare(String(lb ? lb.n : b), 'es', { numeric: true });
+        var c = String(la ? la.n : a).localeCompare(String(lb ? lb.n : b), 'es', { numeric: true });
+        if (c) return c;
+        return rkLabel(a).localeCompare(rkLabel(b), 'es', { numeric: true });
       }).map(function (rk) {
-        var l = lineByKey[rk];
-        return '<optgroup label="' + (l ? l.n : rk.split('_')[0]) + '">' +
-          byLine[rk].map(function (k) { return '<option value="' + k + '">' + stopName(k) + '</option>'; }).join('') +
+        return '<optgroup label="' + rkLabel(rk) + '">' +
+          byRoute[rk].map(function (k) { return '<option value="' + k + '">' + stopName(k) + '</option>'; }).join('') +
           '</optgroup>';
       }).join('');
       $('#schSel').addEventListener('change', function () { renderSched(this.value); });
