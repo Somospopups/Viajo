@@ -149,10 +149,22 @@ Resultado: sin datos el mapa y la interfaz abren igual; lo que no está en cache
 La API de TU BONDI no deja llamarla desde el navegador (CORS cerrado a su propio
 dominio) y aguanta ~1 pedido por segundo. El Worker resuelve las dos cosas:
 mantiene estado por parada en memoria, barre los 18 códigos del feed global de
-una (`BATCH=18`, `FRESH_MS=24s`, concurrencia 4) y sirve `/live` y `/arribos`
+una (`BATCH=18`, `CONC=5`, `FRESH_MS=20s`) y sirve `/live` y `/arribos`
 con cache corto. Con la app abierta (un `/live` cada 10 s) eso deja el ciclo
-entero en ~24-30 s: antes, con lotes de 6, el ciclo era de 40 s y los bondis se
+entero en ~20 s: antes, con lotes de 6, el ciclo era de 40 s y los bondis se
 veían atrasados 40-86 s (mediana 46 s ≈ 500 m de error a 40 km/h).
+
+**Arranque frío.** El estado vive en memoria, así que cada isolate nuevo arranca
+vacío y el barrido completo tarda ~10-20 s. El `globalLive()` viejo esperaba ese
+barrido entero *sin* `waitUntil` y, como la app corta a los 20 s
+(`LIVE_TIMEOUT`), el cliente se iba antes: livelock de "sin datos en vivo" hasta
+que alguien banqueara el request. Ahora la respuesta espera a lo sumo
+`COLD_WAIT_MS=6s` (el refresh corre garantizado por `waitUntil`), y el primer
+lote son `COLD_FIRST=6` códigos para pintar rápido. Medido en producción:
+`/live` pasó de **>15 s (timeout)** a **672 ms** con `ok:true` y datos. De la
+mano, `applyLive()` en `core.js` ya no borra el mapa ante un feed no-ok: deja las
+últimas posiciones buenas y las apaga a los 90 s (`LIVE_STALE`), así un isolate
+reciclado no vacía la pantalla de un saque.
 
 ```bash
 cd relay

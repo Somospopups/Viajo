@@ -1,7 +1,7 @@
 /* Bondi · núcleo: iconos, utilidades, índices, mapa y bondis en vivo */
 'use strict';
 
-var APP_VERSION = 'v191';
+var APP_VERSION = 'v192';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
 function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
@@ -392,10 +392,13 @@ function applyLive(j, partial) {
   live.started = true;
   if (!j || j.ok !== true || !Array.isArray(j.buses)) {
     if (!partial) {
-      live.ok = false;
-      live.n = 0;
-      live.ts = Date.now();
-      clearBuses();
+      /* Un feed no-ok (relay en arranque frío, isolate reciclado, fuente caída
+         un rato) NO borra el mapa: dejamos las últimas posiciones buenas y las
+         apaga tickBuses() a los 90 s (LIVE_STALE). Antes acá se borraba todo de
+         un saque: si el relay tardaba en calentar, el mapa quedaba vacío y
+         volvía a poblarse recién con el siguiente ciclo. */
+      if (!live.srcTs) { live.ok = false; live.n = 0; }   // nunca hubo datos buenos
+      else live.n = buses.length;
     }
     renderLiveBadge();
     return;
@@ -470,7 +473,7 @@ function renderLiveBadge() {
   var el = document.getElementById('liveBadge');
   if (!el) return;
   var html;
-  if (!live.started) html = '<span class="lb-dot"></span>conectando…';
+  if (!live.started || !live.srcTs) html = '<span class="lb-dot"></span>conectando…';
   else if (live.ok && live.ts && Date.now() - live.ts < LIVE_STALE) {
     /* la antigüedad que mostramos es la MEDIANA de los bondis en pantalla:
        el ts global es el del bondi más nuevo y disimula los datos viejos */

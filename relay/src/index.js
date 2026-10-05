@@ -274,19 +274,32 @@ async function cached(key, sec, fn) {
 }
 
 /* estado global + lote incremental en segundo plano */
+const COLD_WAIT_MS = 6000;
+const COLD_FIRST = 6;    // arranque frío: primero un puñado chico (~5 s) para
+                         // pintar algo ya, el resto sigue por waitUntil
+// El estado vive en memoria del isolate: cada isolate nuevo arranca vacío y el
+// barrido de BATCH códigos con CONC=5 tarda ~10-20 s. Si esperábamos ese barrido
+// entero antes de responder (el arranque frío viejo no usaba waitUntil), el cliente
+// de la app —que corta a LIVE_TIMEOUT=20 s— se iba y el isolate nunca se calentaba:
+// livelock de "sin datos en vivo" hasta que alguien banqueara el request.
+// Ahora: el refresh corre garantizado por waitUntil, la respuesta nunca espera
+// más de COLD_WAIT_MS (muy por debajo de lo que tolera cualquier cliente) y el
+// primer lote es chico para tener datos cuanto antes.
 async function globalLive(ctx) {
   const start = async () => {
-    const stale = pickStale(BATCH);
+    const stale = pickStale(state.size === 0 ? COLD_FIRST : BATCH);
     if (!stale.length) return;
     await refreshBatch(stale);
   };
 
+  const p = start();
+  const done = p.catch(() => {});
+  if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(done);
+
   if (state.size === 0) {
-    await start(); // arranque frío: devolvemos con datos ya
-  } else {
-    const p = start();
-    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(p.catch(() => {}));
-    else await p;
+    // arranque frío: esperamos un poco para no devolver el feed vacío,
+    // pero con un tope duro (y aun así seguimos refrescando en background)
+    await Promise.race([done, new Promise((r) => setTimeout(r, COLD_WAIT_MS))]);
   }
   return json(merge(GLOBAL_STOPS), 200, LIVE_CACHE);
 }
