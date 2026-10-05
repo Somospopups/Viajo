@@ -1,0 +1,24 @@
+{
+  "id": "./",
+  "name": "Bondi · Transporte Público de Córdoba",
+  "short_name": "Bondi",
+  "description": "Líneas, paradas, próximos arribos y horarios del transporte público de Córdoba Capital, con posiciones en vivo.",
+  "lang": "es-AR",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#33CCFF",
+  "theme_color": "#33CCFF",
+  "categories": ["travel", "navigation", "utilities"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

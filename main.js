@@ -387,6 +387,10 @@ function onGeoInput(which) {
 }
 
 /* =========================== EVENTOS =========================== */
+function applyThemeColor(dark) {
+  var m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', dark ? '#131C25' : '#33CCFF');
+}
 function wire() {
   document.addEventListener('click', function (e) {
     var sel = ['[data-fav]', '[data-pop]', '[data-navto]', '[data-clear]', '[data-place]', '[data-pick]', '[data-opt]', '[data-goto]', '[data-stop]', '[data-line]', '[data-open]', '[data-nav]', '[data-seg]', '[data-close-modal]', '[data-spot]', '[data-spotpick]', '[data-strip]', '[data-dir]', '[data-bici]'];
@@ -569,6 +573,7 @@ function wire() {
     document.body.classList.toggle('dark', this.checked);
     store.set('dark', this.checked);
     setTileMode(this.checked ? 'dark' : 'light');
+    applyThemeColor(this.checked);
   });
   $('#pushClose').addEventListener('click', function () { $('#push').classList.add('hidden'); });
   $('#btnExitNo').addEventListener('click', function () { closeModal('exitModal'); });
@@ -731,6 +736,7 @@ function boot() {
   if (store.get('dark')) {
     document.body.classList.add('dark');
     $('#tglDark').checked = true;
+    applyThemeColor(true);
   }
   setTimeout(function () {
     $('#splash').classList.add('off');

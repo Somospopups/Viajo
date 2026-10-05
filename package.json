@@ -1,0 +1,13 @@
+{
+  "name": "bondi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bondi · transporte público de Córdoba Capital (PWA)",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "icons": "node tools/gen-icons.js"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5"
+  }
+}
