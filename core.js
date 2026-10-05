@@ -1,7 +1,7 @@
 /* Bondi · núcleo: iconos, utilidades, índices, mapa y bondis en vivo */
 'use strict';
 
-var APP_VERSION = 'v194';
+var APP_VERSION = 'v195';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
 function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
@@ -205,6 +205,7 @@ function bearing(a, b) {
 
 /* =========================== MAPA =========================== */
 var map, userMarker, layerRoute, layerStops, layerBuses, layerFlags, layerWalk, layerDest, tileLayer;
+var geoReal = false;   /* true sólo si la ubicación vino del GPS (no del fallback) */
 var tileMode = 'light';
 var TILE = {
   light: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles &copy; Esri &middot; OpenStreetMap contributors', sub: '' },
@@ -265,10 +266,12 @@ function locateMe() {
   navigator.geolocation.getCurrentPosition(function (p) {
     loader('', false);
     var ok = setUserLocation(p.coords.latitude, p.coords.longitude);
+    geoReal = !!ok;
     if (!ok) toast('Fuera de zona', 'Tu ubicación está fuera del área de Córdoba Capital', 'warn', 'var(--amber)');
     renderNearby(); initSearch();
   }, function () {
     loader('', false);
+    geoReal = false;
     toast('No pudimos ubicarte', 'Usamos el centro de la ciudad', 'locate', 'var(--amber)');
     setUserLocation(CBA[0], CBA[1]);
     initSearch();
@@ -367,12 +370,12 @@ function removeBus(id) {
 function clearBuses() {
   Object.keys(busBySerie).forEach(removeBus);
 }
-/* ¿hay que mostrar este bondi?  Con una línea abierta, sólo los de ESA línea
-   (los dos sentidos: si elegís la 71 querés ver todos los 71 en servicio, no
-   sólo los del sentido de la ruta que abriste); sin línea abierta, todos. */
+/* ¿hay que mostrar este bondi?  Sólo los de la línea que ELEGISTE (los dos
+   sentidos: si elegís la 71 querés ver todos los 71 en servicio).  Sin línea
+   elegida no se muestra ninguno: el mapa no es un mar de puntos. */
 function busVisible(b) {
   if (!BUS_MARKERS) return false;
-  if (!busRoute) return true;
+  if (!busRoute) return false;
   var p = busRoute.split('_');                       /* [linea, cliente, ruta] */
   var linea = String(b.linea != null ? b.linea : (b.key ? b.key.split('_')[0] : ''));
   if (!linea || linea !== p[0]) return false;

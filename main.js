@@ -474,7 +474,7 @@ function wire() {
         }
         case 'seg': activeRoute = parseInt(el.dataset.seg, 10); renderLineDetail(); return;
         case 'close-modal': closeModal(el.dataset.closeModal); return;
-        case 'strip': return openDirModal(el.dataset.strip);
+        case 'strip': return selectLineStrip(el.dataset.strip);
         case 'dir': return chooseRoute(parseInt(el.dataset.dir, 10));
         case 'bici': return openBiciOnMap(parseInt(el.dataset.bici, 10));
       }
@@ -492,6 +492,7 @@ function wire() {
   $('#dirSense').addEventListener('click', function () { chooseRoute(activeRoute); });
   $('#dirGo').addEventListener('click', function () { chooseRoute(activeRoute); });
   $('#lcClose').addEventListener('click', closeLineCard);
+  $('#lcFlip').addEventListener('click', flipSenseCard);
   $('#lcStops').addEventListener('click', function () {
     if (!activeLine) return;
     openView('v-line');

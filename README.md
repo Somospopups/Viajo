@@ -94,10 +94,24 @@ El aviso dice además **por dónde viene**: `busPor()` toma la unidad que se
 unidad; si ninguna viene hacia vos, la más cercana) y le asigna la parada real
 más próxima — “viene por Av. Medina Allende”. Sin ese filtro, el “más cercano”
 podía ser el bondi que acaba de pasar en el sentido contrario: te decía “viene
-por Estación ACA” con el bondi a 25 m y 17 min de eta. Se activa desde una parada
-(“Avisarme cuando llegue”) o desde la línea; la barra `#watchBar` recorre las
-fases *esperar → salí → está por llegar → llegó* y se recalcula cada 10 s con el
-relay.
+por Estación ACA” con el bondi a 25 m y 17 min de eta.
+
+**Flujo completo en dos toques, sin ventanas** (v195):
+
+1. tocás **Líneas** (botón de abajo a la derecha) y elegís una línea en la tira:
+   se selecciona *ahí mismo* — ya no se abre el modal de ida/vuelta (el sentido
+   se cambia tocando “De … a …” en la tarjeta);
+2. tocás **una parada del recorrido** en el mapa: se generan solos los avisos
+   (salí / cerca / subite), con la barra `#watchBar` arriba y el botón de la
+   tarjeta en “Avisando”. Tocar la misma parada los apaga.
+
+Detalles de esa pantalla: en el mapa **sólo se dibujan los bondis de la línea que
+elegiste** (sin línea elegida no hay ninguno: el mapa no es un mar de puntos),
+los botones flotantes van pegados al margen derecho y la tarjeta lleva del lado
+derecho el **dibujo SVG del recorrido** completo, con el punto de salida y el de
+llegada. Si no hay ubicación real (GPS apagado o permiso negado) la barra dice
+“Activá tu ubicación” en vez de inventar un tiempo de caminata, y no se
+programan avisos con una posición errónea.
 
 ## APK de Android
 

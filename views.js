@@ -130,6 +130,22 @@ function renderDirSense() {
   $('#dirSense').setAttribute('data-dir', activeRoute);
   $('#dirGo').setAttribute('data-dir', activeRoute);
 }
+/* Elegir una línea en la tira: la selecciona YA y dibuja su recorrido.
+   Antes acá se abría el modal de sentido (ida/vuelta) y el usuario quedaba
+   atrapado en una ventana más; ahora el sentido se cambia tocando "De … a …"
+   dentro de la propia tarjeta. */
+function selectLineStrip(lineId) {
+  var l = D.lineas.filter(function (x) { return String(x.i) === String(lineId); })[0];
+  if (!l) return;
+  activeLine = l;
+  var saved = store.get('sense_' + l.i, null);
+  activeRoute = (saved != null && l.r[saved]) ? saved : 0;
+  if (!l.r[activeRoute]) activeRoute = 0;
+  chooseRoute(null);   /* cierra la tira, muestra la tarjeta y dibuja la ruta */
+  toast('Línea ' + l.n + ' elegida',
+    'Tocá una parada del recorrido y te avisamos cuándo salir de tu casa',
+    'stop', 'var(--blue-700)');
+}
 function openDirModal(lineId) {
   var l = D.lineas.filter(function (x) { return String(x.i) === String(lineId); })[0];
   if (!l) return;
@@ -174,6 +190,54 @@ function chooseRoute(idx) {
   showLineCard();
   drawRoute(r.t);
 }
+/* cambia ida ↔ vuelta desde la tarjeta (reemplaza al modal de sentido) */
+function flipSenseCard() {
+  var l = activeLine;
+  if (!l || l.r.length < 2) return;
+  activeRoute = (activeRoute + 1) % l.r.length;
+  store.set('sense_' + l.i, activeRoute);
+  chooseRoute(null);
+}
+/* dibujo del recorrido para la tarjeta: SVG a mano, sin mapa ni dependencias */
+function routeMiniSvg(key, w, h) {
+  var t = D.traza[key];
+  if (!t || t.length < 2) return '';
+  var n = t.length, step = Math.max(1, Math.ceil(n / 160)), i, p;
+  var minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+  for (i = 0; i < n; i++) {
+    p = t[i];
+    if (p[0] < minx) minx = p[0];
+    if (p[0] > maxx) maxx = p[0];
+    if (p[1] < miny) miny = p[1];
+    if (p[1] > maxy) maxy = p[1];
+  }
+  var k = Math.cos(((miny + maxy) / 2) * Math.PI / 180);  /* 1° de longitud ≈ cos(lat) km */
+  var sx = (maxx - minx) * k, sy = maxy - miny;
+  if (!(sx > 0)) sx = 1e-6;
+  if (!(sy > 0)) sy = 1e-6;
+  var pad = 4, aw = w - pad * 2, ah = h - pad * 2;
+  var sc = Math.min(aw / sx, ah / sy);
+  var ox = pad + (aw - sx * sc) / 2, oy = pad + (ah - sy * sc) / 2;
+  var d = '', first = null, last = null;
+  for (i = 0; i < n; i += step) {
+    p = t[i];
+    var x = ox + (p[0] - minx) * k * sc, y = oy + (maxy - p[1]) * sc;
+    d += (d ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    if (!first) first = [x, y];
+    last = [x, y];
+  }
+  p = t[n - 1];                                    /* el último punto siempre */
+  var lx = ox + (p[0] - minx) * k * sc, ly = oy + (maxy - p[1]) * sc;
+  d += 'L' + lx.toFixed(1) + ' ' + ly.toFixed(1);
+  last = [lx, ly];
+  var meta = routeMeta[key], col = meta ? meta.l.c : '#0FA6D8';
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" focusable="false">' +
+    '<path d="' + d + '" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="' + first[0].toFixed(1) + '" cy="' + first[1].toFixed(1) + '" r="2.7" fill="' + col + '" stroke="#fff" stroke-width="1.4"/>' +
+    '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="2.7" fill="#fff" stroke="' + col + '" stroke-width="1.7"/>' +
+    '</svg>';
+}
 function showLineCard() {
   $('#lineCard').classList.remove('hidden');
   renderLineCard();
@@ -193,7 +257,11 @@ function renderLineCard() {
   $('#lcBadge').textContent = l.n;
   $('#lcBadge').style.background = l.c;
   $('#lcName').textContent = 'Línea ' + l.n;
-  $('#lcDir').textContent = (r.s === 'V' ? 'Vuelta' : 'Ida') + ' · ' + r.n;
+  var e = dirEnds(r);
+  $('#lcDir').textContent = (r.s === 'V' ? 'Vuelta' : 'Ida') + ' · ' + (e[1] ? e[0] + ' ' + e[1] : e[0]);
+  $('#lcFlip').classList.toggle('hide', l.r.length < 2);
+  /* el lado derecho de la tarjeta: dibujo del recorrido completo */
+  $('#lcMap').innerHTML = routeMiniSvg(r.t, 96, 56);
   $('#lcFav').classList.toggle('on', store.get('favLines', []).indexOf(l.i) >= 0);
   refreshCardEta();
   syncWatchUI();
@@ -211,8 +279,11 @@ function refreshCardEta() {
   var txt = $('#lcEtaTxt');
   if (!s) { txt.textContent = 'Sin paradas en este recorrido'; return; }
   var pos = myPos(), d = distM([pos.lat, pos.lng], [s.la, s.lo]);
-  txt.textContent = 'Tu parada más cercana: ' + s.n + ' · ' + fmtKm(d) + ' · caminás ' + fmtMin(walkMinTo(s.la, s.lo)) +
-    (a ? ' · llega en ' + fmtMin(a.min) : '');
+  txt.textContent = geoReal
+    ? 'Tu parada más cercana: ' + s.n + ' · ' + fmtKm(d) + ' · caminás ' + fmtMin(walkMinTo(s.la, s.lo)) +
+      (a ? ' · llega en ' + fmtMin(a.min) : '')
+    : 'Tu parada más cercana: ' + s.n + (a ? ' · llega en ' + fmtMin(a.min) : '') +
+      ' · tocá el punto de ubicación para saber cuándo salir';
 }
 function nearestStopOnRoute(key) {
   var stops = D.R[key] || [], pos = myPos(), best = null;
@@ -332,9 +403,25 @@ function drawStopsFor(key) {
     }).addTo(layerStops);
     m.on('click', function (e) {
       L.DomEvent.stopPropagation(e);
-      openStopPopup(si, e.latlng, key);
+      tapStop(si, key, e.latlng);
     });
   });
+}
+/* Tocar una parada del recorrido con la línea elegida: activa los avisos ahí
+   mismo, sin ventanas — así se generan solas las notificaciones de cuándo
+   salir de tu casa. Tocarla otra vez los apaga. Sin línea elegida (no debería
+   pasar: las paradas sólo se dibujan con el recorrido abierto) mostramos la
+   ficha informativa de antes. */
+function tapStop(si, key, latlng) {
+  var s = D.P[si];
+  if (!s) return;
+  if (!key) { openStopPopup(si, latlng, key); return; }
+  if (watch && watch.key === key && watch.si === si) {
+    stopWatch();
+    toast('Avisos apagados', 'No te vamos a avisar por ' + s.n, 'bell', 'var(--muted)');
+    return;
+  }
+  startWatch(key, si);
 }
 function clearRoute() {
   layerRoute.clearLayers(); layerStops.clearLayers(); layerWalk.clearLayers(); layerFlags.clearLayers();
@@ -1194,6 +1281,20 @@ function tickWatch(force) {
   var por = eta != null ? busPor(watch.key, watch.si) : null;
   var calle = por ? por.calle : null;
   var phase, state, title, sub;
+
+  /* Sin ubicación real (GPS apagado o permiso negado) no calculamos nada:
+     el "caminás 4 h" era mentira y los avisos programados saldrían mal. */
+  if (!geoReal) {
+    cancelNativePlan();
+    showWatchBar();
+    bar.dataset.state = 'wait';
+    $('#wbTitle').textContent = 'Activá tu ubicación';
+    $('#wbSub').textContent = 'Necesitamos tu ubicación para decirte cuándo salir · tocá el botón de la derecha';
+    var plEta = $('#wbEta');
+    plEta.className = 'eta-pill eta-r';
+    plEta.textContent = '—';
+    return;
+  }
 
   if (eta == null) {
     phase = 0; state = 'wait';

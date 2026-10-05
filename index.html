@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="style.css?v=194">
+<link rel="stylesheet" href="style.css?v=195">
 </head>
 <body>
 
@@ -79,7 +79,14 @@
   <div id="lineCard" class="hidden">
     <div class="lcard-top">
       <span class="lcard-badge" id="lcBadge">A</span>
-      <div class="lcard-txt"><b id="lcName">Línea A</b><span id="lcDir">Recorrido</span></div>
+      <div class="lcard-txt">
+        <b id="lcName">Línea A</b>
+        <button class="lcard-dir" id="lcFlip" type="button" title="Cambiar el sentido del recorrido">
+          <span id="lcDir">Recorrido</span>
+          <svg class="flip-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 0 1-14.6 5.9"/><path d="M3.5 12a8.5 8.5 0 0 1 14.6-5.9"/><polyline points="18.6 2.6 18.7 6.3 15 6.4"/><polyline points="5.4 21.4 5.3 17.7 9 17.6"/></svg>
+        </button>
+      </div>
+      <div class="lcard-map" id="lcMap" aria-hidden="true"></div>
       <button class="star-btn" id="lcFav" type="button" title="Favorito"><span class="ico" data-ico="star"></span></button>
       <button class="lcard-x" id="lcClose" type="button" title="Cerrar"><span class="ico" data-ico="close"></span></button>
     </div>
@@ -329,10 +336,10 @@
 <div id="loader" class="hidden"><div class="spin"></div><span id="loaderTxt">Buscando líneas…</span></div>
 
 <script src="vendor/leaflet.js"></script>
-<script src="data.js?v=194"></script>
-<script src="core.js?v=194"></script>
-<script src="bici.js?v=194"></script>
-<script src="views.js?v=194"></script>
-<script src="main.js?v=194"></script>
+<script src="data.js?v=195"></script>
+<script src="core.js?v=195"></script>
+<script src="bici.js?v=195"></script>
+<script src="views.js?v=195"></script>
+<script src="main.js?v=195"></script>
 </body>
 </html>

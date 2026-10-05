@@ -205,7 +205,10 @@ body.dark .leaflet-control-attribution{background:rgba(12,18,25,.72)!important;c
 @keyframes slideDown{from{transform:translateY(-16px);opacity:0}to{transform:translateY(0);opacity:1}}
 
 /* ============================ CONTROLES MAPA ============================ */
-#mapCtl{position:absolute;right:12px;top:calc(var(--top-h) + env(safe-area-inset-top) + 14px);display:flex;flex-direction:column;gap:9px;z-index:390}
+/* align-items:flex-end: la columna mide lo que el badge (200px) y los botones,
+   si no, se alinean a la izquierda de esa columna y quedan a 168px del borde
+   (en el medio de la pantalla) en vez de pegados al margen derecho. */
+#mapCtl{position:absolute;right:12px;top:calc(var(--top-h) + env(safe-area-inset-top) + 14px);display:flex;flex-direction:column;align-items:flex-end;gap:9px;z-index:390}
 .fab{
   width:44px;height:44px;border-radius:15px;background:var(--bg);box-shadow:var(--shadow-1);
   display:flex;align-items:center;justify-content:center;color:var(--navy);position:relative;
@@ -482,11 +485,27 @@ body.dark .eta-r{background:rgba(255,75,75,.2);color:#FF8080}
   padding:11px 12px 12px;animation:cardIn .3s cubic-bezier(.2,.9,.25,1)
 }
 @keyframes cardIn{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
-.lcard-top{display:flex;align-items:center;gap:10px}
+.lcard-top{display:flex;align-items:center;gap:8px}
 .lcard-badge{width:42px;height:42px;border-radius:14px;background:var(--blue-700);color:#fff;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 5px 14px rgba(6,30,45,.22)}
 .lcard-txt{flex:1;min-width:0}
 .lcard-txt b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lcard-txt span{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* "De … a …" tocable: cambia el sentido del recorrido sin abrir ventanas */
+.lcard-dir{
+  display:flex;align-items:center;gap:4px;max-width:100%;
+  background:none;border:0;padding:0;margin:0;font:inherit;font-size:11.5px;
+  color:var(--muted);text-align:left;cursor:pointer
+}
+.lcard-dir .flip-ico{width:12px;height:12px;flex:none;opacity:.7}
+.lcard-dir.hide .flip-ico{display:none}
+.lcard-dir:active{opacity:.6}
+/* dibujo del recorrido del lado derecho de la tarjeta */
+.lcard-map{
+  width:76px;height:46px;flex:none;border-radius:13px;overflow:hidden;
+  background:var(--bg-2);border:1px solid var(--line);padding:4px 5px;
+  display:flex;align-items:center;justify-content:center
+}
+.lcard-map svg{width:100%;height:100%;display:block}
 .lcard-x{width:34px;height:34px;border-radius:12px;background:var(--bg-3);display:flex;align-items:center;justify-content:center;color:var(--navy-2);flex:none}
 .lcard-x .ico{width:15px;height:15px}
 #lcFav{width:36px;height:36px;border-radius:12px}
@@ -759,4 +778,7 @@ body.dark #loader{background:rgba(10,15,20,.72)}
 .badge-dot{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;margin-left:6px;vertical-align:middle}
 @media (max-width:360px){
   .line-hero-t h3{font-size:16.5px}
+  /* en pantallas angostas el dibujo del recorrido se lleva el ancho */
+  #lcFav{display:none}
+  .lcard-map{width:64px;height:40px}
 }
