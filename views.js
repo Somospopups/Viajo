@@ -1010,24 +1010,49 @@ function syncNativePlan(t, txt) {
   nativePlan = merged;
 }
 
-/* Dónde está el bondi en su recorrido: la parada real (calle) más cercana a la unidad */
+/* diferencia angular entre dos rumbos (grados, 0 = norte), siempre 0..180 */
+function angDiff(a, b) {
+  var d = Math.abs(((a - b) % 360 + 360) % 360);
+  return d > 180 ? 360 - d : d;
+}
+
+/* Dónde está el bondi en su recorrido: la parada real (calle) más cercana a la unidad.
+   Priorizamos las unidades que se ACERCAN a tu parada (rumbo = dos muestras
+   consecutivas de la misma unidad). Sin ese filtro, el "más cercano" puede ser el
+   que acaba de pasar en el sentido contrario: te decía "viene por Estación ACA"
+   con el bondi a 25 m pero con 17 min de eta. Si ninguna viene hacia vos, se usa
+   el más cercano como antes. */
 function busPor(key, si) {
   var bs = busesOn(key);
   if (!bs.length) return null;
-  var t = D.P[si], mejor = null;
+  var t = D.P[si];
+  if (!t) return null;
+  var destino = [t.la, t.lo];
+  var mejor = null, mejorAprox = null;
   bs.forEach(function (b) {
-    var d = t ? distM(b.cur, [t.la, t.lo]) : 1e9;
-    if (!mejor || d < mejor.d) mejor = { pos: b.cur, d: d };
+    var d = distM(b.cur, destino);
+    var hacia = true;   /* sin rumbo (nueva unidad o detenida) no opinamos */
+    if (b.prevTo && b.to) {
+      var movio = distM(b.prevTo, b.to);
+      if (movio > 8) {
+        var rumbo = trueBearing(b.prevTo, b.to);
+        hacia = angDiff(rumbo, trueBearing(b.cur, destino)) <= 90;
+      }
+    }
+    var c = { pos: b.cur, d: d };
+    if (!mejor || d < mejor.d) mejor = c;
+    if (hacia && (!mejorAprox || d < mejorAprox.d)) mejorAprox = c;
   });
-  if (!mejor) return null;
+  var elegido = mejorAprox || mejor;
+  if (!elegido) return null;
   var calle = null, dmin = null;
   (D.R[key] || []).forEach(function (idx) {
     var s = D.P[idx];
     if (!s) return;
-    var d = distM(mejor.pos, [s.la, s.lo]);
+    var d = distM(elegido.pos, [s.la, s.lo]);
     if (dmin == null || d < dmin) { dmin = d; calle = s.n; }
   });
-  return calle ? { calle: calle, dist: mejor.d } : null;
+  return calle ? { calle: calle, dist: elegido.d } : null;
 }
 
 /* ---------- plan de salida: caminata + espera máxima de 3 min + bondi alcanzable ---------- */
