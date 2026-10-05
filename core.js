@@ -1,7 +1,7 @@
 /* Bondi · núcleo: iconos, utilidades, índices, mapa y bondis en vivo */
 'use strict';
 
-var APP_VERSION = 'v187';
+var APP_VERSION = 'v188';
 var D = window.DATA;
 function $(s, r) { return (r || document).querySelector(s); }
 function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
@@ -343,7 +343,7 @@ function createBus(id, b, key) {
       iconSize: [34, 34], iconAnchor: [17, 17]
     }),
     zIndexOffset: 500
-  }).addTo(layerBuses);
+  });
   var m = {
     id: id, serie: String(b.serie || ''), coche: String(b.coche || ''),
     linea: String(b.linea || ''), cliente: b.cliente, ruta: b.ruta,
@@ -353,6 +353,7 @@ function createBus(id, b, key) {
   };
   buses.push(m);
   projectBus(m);
+  if (busVisible(m)) el.addTo(layerBuses);
   return m;
 }
 function removeBus(id) {
@@ -366,10 +367,21 @@ function removeBus(id) {
 function clearBuses() {
   Object.keys(busBySerie).forEach(removeBus);
 }
-/* muestra/oculta los bondis según el recorrido que estás viendo */
+/* ¿hay que mostrar este bondi?  Con una línea abierta, sólo los de ESA línea
+   (los dos sentidos: si elegís la 71 querés ver todos los 71 en servicio, no
+   sólo los del sentido de la ruta que abriste); sin línea abierta, todos. */
+function busVisible(b) {
+  if (!BUS_MARKERS) return false;
+  if (!busRoute) return true;
+  var p = busRoute.split('_');                       /* [linea, cliente, ruta] */
+  var linea = String(b.linea != null ? b.linea : (b.key ? b.key.split('_')[0] : ''));
+  if (!linea || linea !== p[0]) return false;
+  var cliente = b.cliente != null ? String(b.cliente) : (b.key ? b.key.split('_')[1] : null);
+  return !cliente || cliente === p[1];
+}
 function syncBusLayer() {
   buses.forEach(function (b) {
-    var show = !!BUS_MARKERS || (busRoute && b.key === busRoute);
+    var show = busVisible(b);
     var on = layerBuses.hasLayer(b.el);
     if (show && !on) b.el.addTo(layerBuses);
     else if (!show && on) layerBuses.removeLayer(b.el);
@@ -419,6 +431,7 @@ function applyLive(j, partial) {
   live.n = buses.length;
   live.ts = srcTs;
   live.srcTs = srcTs;
+  syncBusLayer();   /* un bondi puede entrar/salir de la línea abierta */
   renderLiveBadge();
   refreshLiveContext();
 }
@@ -459,7 +472,13 @@ function renderLiveBadge() {
   var html;
   if (!live.started) html = '<span class="lb-dot"></span>conectando…';
   else if (live.ok && live.ts && Date.now() - live.ts < LIVE_STALE) {
-    var age = Math.max(0, Math.round((Date.now() - live.ts) / 1000));
+    /* la antigüedad que mostramos es la MEDIANA de los bondis en pantalla:
+       el ts global es el del bondi más nuevo y disimula los datos viejos */
+    var now = Date.now();
+    var edades = buses.map(function (b) { return now - (b.dataTs || b.seenAt || now); })
+      .sort(function (a, b) { return a - b; });
+    var age = edades.length ? Math.round(edades[Math.floor(edades.length / 2)] / 1000)
+                            : Math.round((now - live.ts) / 1000);
     html = '<span class="lb-dot"></span>en vivo · hace ' + (age < 100 ? age : '99+') + ' s · ' + live.n + ' bondis';
   } else html = '<span class="lb-dot"></span>sin datos en vivo';
   var on = html.indexOf('sin datos') < 0 && html.indexOf('conectando') < 0;
@@ -615,7 +634,7 @@ function nextArrival(key, stopIdx) {
     if (!b.len) return;
     var wait = b.dist <= sd ? b.len - b.dist + sd : sd - b.dist;
     var min = wait / b.speed / 60;
-    if (!out || min < out.min) out = { min: min, real: true };
+    if (!out || min < out.min) out = { min: min, real: true, live: true };
   });
   if (out) return out;
   return synthArrival(key, stopIdx);

@@ -91,9 +91,12 @@ Resultado: sin datos el mapa y la interfaz abren igual; lo que no está en cache
 ## Relay en vivo (`relay/`)
 
 La API de TU BONDI no deja llamarla desde el navegador (CORS cerrado a su propio
-dominio) y aguanta ~1,5 pedidos por segundo. El Worker resuelve las dos cosas:
-mantiene estado por parada en memoria, barre los códigos en lotes de 6 con
-concurrencia 4 y sirve `/live` y `/arribos` con cache corto.
+dominio) y aguanta ~1 pedido por segundo. El Worker resuelve las dos cosas:
+mantiene estado por parada en memoria, barre los 18 códigos del feed global de
+una (`BATCH=18`, `FRESH_MS=24s`, concurrencia 4) y sirve `/live` y `/arribos`
+con cache corto. Con la app abierta (un `/live` cada 10 s) eso deja el ciclo
+entero en ~24-30 s: antes, con lotes de 6, el ciclo era de 40 s y los bondis se
+veían atrasados 40-86 s (mediana 46 s ≈ 500 m de error a 40 km/h).
 
 ```bash
 cd relay
@@ -101,6 +104,10 @@ npm i
 npm run dev       # wrangler dev · http://127.0.0.1:8787
 npm run deploy    # wrangler deploy · requiere wrangler login
 ```
+
+Ya está desplegado en `https://bondi-live.somospopups.workers.dev`: `/health`
+devuelve el colo, cuántas paradas tiene en memoria y una sonda (cacheada 30 s)
+a la fuente; `/live` y `/arribos` traen posiciones y arribos reales.
 
 La app lo apunta a `https://bondi-live.somospopups.workers.dev` (constante
 `LIVE_URL` en `core.js`); se puede pisar por query con `?live=https://otro`.
@@ -114,21 +121,52 @@ node relay/genstops.js
 
 ## Datos
 
-`data.js` es un archivo generado (554 KB) con líneas, paradas, trazas y horarios
-del sistema real. Los crudos quedan en `_raw/`, que está en `.gitignore` a
-propósito: no versionan datos bajados de la API. **Hoy no hay script que
-reproduzca `data.js` desde `_raw/`** — está sólo el `genstops.js` que lo *lee*.
-Si hace falta regenerarlo, conviene armar ese script y versionarlo.
+`data.js` es un archivo generado con líneas, paradas, trazas y horarios del
+sistema real. Los crudos quedan en `_raw/`, que está en `.gitignore` a
+propósito: no versionan datos bajados de la API. El pipeline está versionado:
+
+```bash
+node tools/build-data.js         # _raw/ -> data.js (líneas, trazas, paradas, horarios)
+node tools/harvest-horarios.js   # baja horarios de todas las rutas (idempotente)
+node tools/probe-api3.js         # sonda corta: ¿la API sigue viva y qué devuelve?
+```
+
+`tools/raw-dir.js` resuelve dónde está `_raw/` (variable `RAW_DIR`, o `./_raw`,
+o el repo hermano `bondi-cba/_raw`). La cosecha va a propósito lenta (~1 req/s),
+respeta el `sentido` de cada ruta y se puede cortar y relanzar: lo ya bajado no
+se vuelve a pedir. Hoy cubre las **160 rutas** con **679 claves** de horario
+(`clavesHorario` del build, contra ~72 que tenía el archivo a mano).
 
 Política de datos: las posiciones **nunca se simulan**. Si no hay datos frescos,
 los bondis se apagan y el badge lo indica; los arribos caen al horario de
 programa.
 
+### Verificación de georreferenciación
+
+Ante cualquier duda de "¿el mapa está corridido?", la respuesta está medida, no
+supuesta (todo contra OpenStreetMap como referencia independiente):
+
+```bash
+node tools/diag-georef.js      # paradas vs OSM · bondis vs vías de OSM
+node tools/diag-bondis-calles.js # bondis en vivo: ¿caen sobre la calle?
+node tools/diag-tiles.js        # ArcGIS (fondo) vs OSM, mismo tile y geocoding
+node tools/diag-frescura.js     # antigüedad real del feed, muestra por muestra
+```
+
+Última corrida: paradas vs OSM **13 m de mediana con vector (dx, dy) = (0, 0)**;
+bondis en vivo **a 1-5 m del eje de la calle**; el tile de ArcGIS y el de OSM
+alineados en **(0, 0) px**. O sea: ni los datos ni el fondo están corridados.
+
+El corrimiento que se llega a ver era **de render**, no de datos: `.mk-bus`
+tenía `position: relative`, con lo que el ícono dejaba de posicionarse en
+absoluto y **se apilaba en el flujo** del panel de markers — cada bondi quedaba
+desplazado +17 px por cada uno agregado antes (medido: +13, +30, +47 … +132).
+`style.css` carga después de `vendor/leaflet.css` y ganaba la especificidad de
+`.leaflet-marker-icon{position:absolute}`. Ahora es `absolute` y el offset
+medido es **(0, 0) en todos**.
+
 ## Pendientes
 
-- **Relay en vivo sin desplegar:** hasta que alguien corra `cd relay && npm run
-  deploy` (requiere `wrangler login`), el feed de posiciones está apagado: el
-  badge queda en “sin datos en vivo” y los arribos caen al horario de programa.
 - Elegir licencia (falta `LICENSE`).
 - Accesibilidad: botones sin nombre accesible y contraste de algunos textos
   (Lighthouse: a11y 0.85).

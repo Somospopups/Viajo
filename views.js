@@ -684,10 +684,25 @@ function remember(p) {
   recents.unshift({ n: p.n, la: p.la, lo: p.lo });
   store.set('recents', recents.slice(0, 8));
 }
+/* Espera real, en minutos, para subirte a `key` en la parada `stopIdx`.
+   Orden: datos en vivo de la parada → bus en movimiento sobre la traza →
+   horario de programa (D.H) → estimación estable por línea.
+   `cache` evita recomputar dentro de planTrip, que evalúa miles de combinaciones. */
+function waitMinutes(key, stopIdx, cache) {
+  var ck = key + '>' + stopIdx;
+  if (cache && cache[ck] != null) return cache[ck];
+  var a = nextArrival(key, stopIdx);
+  var w = a && a.min != null ? Math.round(a.min) : 3 + (hash(key + stopIdx) % 4);
+  if (w < 0) w = 0;
+  if (w > 60) w = 60;
+  if (cache) cache[ck] = w;
+  return w;
+}
 function planTrip(aLat, aLon, bLat, bLon) {
   var W = 4.6 / 3.6, B = 17.5 / 3.6;
   function walkT(m) { return (m * 1.28) / W / 60; }
   function busT(m) { return m / B / 60; }
+  var wCache = {};
   var from = stopsNear(aLat, aLon, 850).slice(0, 7);
   var to = stopsNear(bLat, bLon, 850).slice(0, 7);
   var out = [];
@@ -709,7 +724,7 @@ function planTrip(aLat, aLon, bLat, bLon) {
         var db = stopDist[ra.key] && stopDist[ra.key][fb.i];
         if (db == null || db - da < 150) return;
         var walkM = distM([aLat, aLon], [D.P[fa.i].la, D.P[fa.i].lo]) + distM([D.P[fb.i].la, D.P[fb.i].lo], [bLat, bLon]);
-        var wait = 3 + (hash(ra.key + fa.i) % 4);
+        var wait = waitMinutes(ra.key, fa.i, wCache);
         mk({
           legs: [{ key: ra.key, from: fa.i, to: fb.i, dist: db - da }],
           walkM: walkM, extra: wait, transfers: 0,
@@ -740,13 +755,14 @@ function planTrip(aLat, aLon, bLat, bLon) {
             var db = stopDist[rb.key] && stopDist[rb.key][fb.i];
             if (db == null || db - db0 < 150) continue;
             var walkM = distM([aLat, aLon], [D.P[fa.i].la, D.P[fa.i].lo]) + distM([D.P[fb.i].la, D.P[fb.i].lo], [bLat, bLon]);
-            var wait = 3 + (hash(ra.key + fa.i) % 4);
+            var wait = waitMinutes(ra.key, fa.i, wCache);
+            var wait2 = waitMinutes(rb.key, mid, wCache);
             mk({
               legs: [
                 { key: ra.key, from: fa.i, to: mid, dist: dMid - da },
                 { key: rb.key, from: mid, to: fb.i, dist: db - db0 }
               ],
-              walkM: walkM, extra: wait + 4, transfers: 1,
+              walkM: walkM, extra: wait + 4 + wait2, transfers: 1,
               aStop: fa.i, bStop: fb.i, mid: mid
             });
           }
@@ -822,11 +838,23 @@ function renderTrip() {
   var pos = myPos();
   steps += step('walk', 'var(--green)', 'Caminá hasta la parada',
     D.P[o.aStop].n + ' · ' + fmtKm(distM([pos.lat, pos.lng], [D.P[o.aStop].la, D.P[o.aStop].lo])), fmtMin(o.walkT));
-  steps += step('clock', 'var(--blue-700)', 'Esperá tu bondi', 'Próxima unidad en ' + fmtMin(3 + (hash(o.legs[0].key) % 4)), fmtMin(3 + (hash(o.legs[0].key) % 4)));
+  var a0 = nextArrival(o.legs[0].key, o.aStop);
+  var w1 = waitMinutes(o.legs[0].key, o.aStop);
+  var src0 = a0 && a0.live ? 'en vivo' : a0 && a0.real ? 'horario de programa' : 'estimado';
+  steps += step('clock', 'var(--blue-700)', w1 < 1 ? 'Tu bondi está llegando' : 'Esperá tu bondi',
+    w1 < 1 ? 'En la parada ahora mismo · ' + src0 : 'Próxima unidad en ' + fmtMin(w1) + ' · ' + src0, fmtMin(w1));
   o.legs.forEach(function (lg, i) {
     var l = lineByKey[lg.key], meta = routeMeta[lg.key];
     steps += step('bus', l.c, 'Subite a la línea ' + l.n, meta.r.n.charAt(0) + meta.r.n.slice(1).toLowerCase(), fmtMin(lg.dist / (17.5 / 3.6) / 60));
-    steps += step('stop', l.c, 'Bajate en ' + D.P[lg.to].n, i < o.legs.length - 1 ? 'Ahí tomás la línea ' + lineByKey[o.legs[i + 1].key].n : 'Ya llegaste a la zona', '');
+    if (i < o.legs.length - 1) {
+      var nxt = lineByKey[o.legs[i + 1].key];
+      var w2 = waitMinutes(o.legs[i + 1].key, lg.to);
+      steps += step('stop', l.c, 'Bajate en ' + D.P[lg.to].n, 'Ahí tomás la línea ' + nxt.n, '');
+      steps += step('clock', 'var(--blue-700)', w2 < 1 ? 'La línea ' + nxt.n + ' está llegando' : 'Esperá la línea ' + nxt.n,
+        w2 < 1 ? 'En la parada ahora mismo' : 'Próxima unidad en ' + fmtMin(w2), fmtMin(w2));
+    } else {
+      steps += step('stop', l.c, 'Bajate en ' + D.P[lg.to].n, 'Ya llegaste a la zona', '');
+    }
   });
   steps += step('flag', 'var(--red)', 'Llegá a tu destino', pts.b ? pts.b.n : 'Destino', '');
   $('#tripSteps').innerHTML = steps;

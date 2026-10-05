@@ -186,12 +186,25 @@ var PAGES = {
     },
     after: function () {
       var keys = Object.keys(D.H);
-      $('#schSel').innerHTML = keys.map(function (k) {
-        var cut = k.lastIndexOf('_');
-        var rk = k.substring(0, cut), code = k.substring(cut + 1);
+      function stopName(k) {
+        var code = k.substring(k.lastIndexOf('_') + 1);
+        var s = D.P.filter(function (p) { return p.k === code; })[0];
+        return s ? s.n : code;
+      }
+      /* agrupadas por línea: con horarios de todo el sistema la lista es larga */
+      var byLine = {};
+      keys.forEach(function (k) {
+        var rk = k.substring(0, k.lastIndexOf('_'));
+        (byLine[rk] = byLine[rk] || []).push(k);
+      });
+      $('#schSel').innerHTML = Object.keys(byLine).sort(function (a, b) {
+        var la = lineByKey[a], lb = lineByKey[b];
+        return String(la ? la.n : a).localeCompare(String(lb ? lb.n : b), 'es', { numeric: true });
+      }).map(function (rk) {
         var l = lineByKey[rk];
-        var stop = D.P.filter(function (p) { return p.k === code; })[0];
-        return '<option value="' + k + '">' + (l ? l.n : rk.split('_')[0]) + ' · ' + (stop ? stop.n : code) + '</option>';
+        return '<optgroup label="' + (l ? l.n : rk.split('_')[0]) + '">' +
+          byLine[rk].map(function (k) { return '<option value="' + k + '">' + stopName(k) + '</option>'; }).join('') +
+          '</optgroup>';
       }).join('');
       $('#schSel').addEventListener('change', function () { renderSched(this.value); });
       renderSched(keys[0]);

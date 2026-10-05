@@ -23,17 +23,18 @@ const GLOBAL_STOPS = [
   'GU14', 'EQ05', 'GF15', 'OB21', 'PS02', 'BW12', 'BP05', 'DF02', 'VG12',
 ];
 
-const BATCH = 6;         // códigos refrescados por pedido
+const BATCH = 18;        // códigos refrescados por pedido (todos los stale: con
+                         // llamadas cada 10 s el ciclo entero baja de 40 s a ~24 s
+                         // y los bondis dejan de verse atrasados en el mapa)
 const CONC = 4;          // concurrencia contra la fuente (más = timeouts allá)
 const UP_TIMEOUT = 15000;
-const FRESH_MS = 30000;  // no se vuelve a pedir un código más nuevo que esto
+const FRESH_MS = 24000;  // no se vuelve a pedir un código más nuevo que esto
 const STALE_MAX = 180000;
 const MAX_CODES = 8;
 const LIVE_CACHE = 4;    // segundos de cache del feed global
 const AR_CACHE = 8;
 
 const state = new Map(); // código -> { ts, buses: [...] }
-let busy = false;
 let cookie = '';
 let cookieAt = 0;
 
@@ -171,14 +172,29 @@ function pickStale(limit) {
     .slice(0, limit);
 }
 
+let inflightBatch = null;
 async function refreshBatch(codes) {
-  if (busy) return null;
-  busy = true;
-  try {
-    return await refreshCodes(codes);
-  } finally {
-    busy = false;
-  }
+  if (inflightBatch) return inflightBatch; // otro request ya está refrescando: lo esperamos
+  inflightBatch = refreshCodes(codes).then(
+    (r) => { inflightBatch = null; return r; },
+    () => { inflightBatch = null; return null; }
+  );
+  return inflightBatch;
+}
+
+/* sonda a la fuente, cacheada 30 s: para /health (no satura la API) */
+let upProbe = { ts: 0, ok: false, ms: 0, n: -1 };
+async function probeUp() {
+  if (Date.now() - upProbe.ts < 30000) return upProbe;
+  const t0 = Date.now();
+  const j = await upArribos('CE71');
+  upProbe = {
+    ts: Date.now(),
+    ok: !!(j && Array.isArray(j.proximos_arribos)),
+    ms: Date.now() - t0,
+    n: j && Array.isArray(j.proximos_arribos) ? j.proximos_arribos.length : -1,
+  };
+  return upProbe;
 }
 
 function merge(codes) {
@@ -301,7 +317,18 @@ export default {
     const url = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() });
 
-    if (url.pathname === '/health') return json({ ok: true, ts: Date.now(), stops: state.size });
+    if (url.pathname === '/health') {
+      const up = await probeUp();
+      const cf = req.cf || {};
+      return json({
+        ok: true,
+        ts: Date.now(),
+        stops: state.size,
+        colo: cf.colo || null,
+        country: cf.country || null,
+        up,
+      });
+    }
 
     if (url.pathname === '/live') {
       const codes = codesOf(url, false);
