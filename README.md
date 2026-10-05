@@ -5,7 +5,7 @@ horarios y posiciones en vivo de la flota. **JavaScript vanilla + Leaflet, sin
 frameworks y sin build**: se edita un archivo y se publica.
 
 - **Web:** https://somospopups.github.io/Viajo/
-- **Versión:** `APP_VERSION` en `core.js` (hoy `v186`)
+- **Versión:** `APP_VERSION` en `core.js` (hoy `v187`)
 - **Datos en vivo:** relay propio en Cloudflare Worker (`relay/`) contra la API de TU BONDI
 
 ---
@@ -45,8 +45,8 @@ venir con el content-type equivocado.
 
 ## Publicar una versión
 
-Cada cambio publicado consume un número de versión (sin decimales: `v185`,
-`v186`, `v187`…). Al cambiar cosas del shell hay que mover los tres juntos:
+Cada cambio publicado consume un número de versión (sin decimales: `v186`,
+`v187`, `v188`…). Al cambiar cosas del shell hay que mover los tres juntos:
 
 1. `core.js` → `var APP_VERSION = 'vNNN';`
 2. `index.html` → los seis `?v=NNN` (style.css, data.js, core.js, bici.js, views.js, main.js)
@@ -126,6 +126,9 @@ programa.
 
 ## Pendientes
 
+- **Relay en vivo sin desplegar:** hasta que alguien corra `cd relay && npm run
+  deploy` (requiere `wrangler login`), el feed de posiciones está apagado: el
+  badge queda en “sin datos en vivo” y los arribos caen al horario de programa.
 - Elegir licencia (falta `LICENSE`).
 - Accesibilidad: botones sin nombre accesible y contraste de algunos textos
   (Lighthouse: a11y 0.85).
