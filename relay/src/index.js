@@ -26,9 +26,14 @@ const GLOBAL_STOPS = [
 const BATCH = 18;        // códigos refrescados por pedido (todos los stale: con
                          // llamadas cada 10 s el ciclo entero baja de 40 s a ~24 s
                          // y los bondis dejan de verse atrasados en el mapa)
-const CONC = 4;          // concurrencia contra la fuente (más = timeouts allá)
+const CONC = 5;          // concurrencia contra la fuente (más = timeouts allá).
+                         // 18 pedidos con CONC=4 y ~2,9 s por llamada tardaban
+                         // 14 s: el batch se comía el intervalo y el ciclo real
+                         // era de 38 s. Con 5 baja a ~10 s y el ciclo a 20 s.
 const UP_TIMEOUT = 15000;
-const FRESH_MS = 24000;  // no se vuelve a pedir un código más nuevo que esto
+const FRESH_MS = 20000;  // no se vuelve a pedir un código más nuevo que esto
+                         // (18 códigos / 20 s = 0,9 req/s: la fuente aguantó
+                         // 0,78 req/s sostenidos en la cosecha de horarios)
 const STALE_MAX = 180000;
 const MAX_CODES = 8;
 const LIVE_CACHE = 4;    // segundos de cache del feed global
